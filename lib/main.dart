@@ -814,10 +814,10 @@ class Dashboard extends ConsumerWidget {
                     : Column(
                         children: [
                           SizedBox(
-                            height: 185,
+                            height: 160,
                             child: PieChart(
                               PieChartData(
-                                centerSpaceRadius: 48,
+                                centerSpaceRadius: 43,
                                 sectionsSpace: 3,
                                 sections: d.summary.categories
                                     .asMap()
@@ -826,7 +826,7 @@ class Dashboard extends ConsumerWidget {
                                       (e) => PieChartSectionData(
                                         value: e.value.total,
                                         color: _categoryColor(e.value.name),
-                                        radius: 55,
+                                        radius: 44,
                                         title: '',
                                       ),
                                     )
@@ -834,6 +834,7 @@ class Dashboard extends ConsumerWidget {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 14),
                           Wrap(
                             spacing: 8,
                             runSpacing: 7,
@@ -841,6 +842,7 @@ class Dashboard extends ConsumerWidget {
                                 .map(
                                   (c) => _Legend(
                                     color: _categoryColor(c.name),
+                                    icon: _categoryIcon(c.name),
                                     label:
                                         '${c.name} (${(c.total / d.summary.total * 100).round()}%)',
                                   ),
@@ -1410,18 +1412,15 @@ class _MonthPicker extends ConsumerWidget {
 }
 
 class _Legend extends StatelessWidget {
-  const _Legend({required this.color, required this.label});
+  const _Legend({required this.color, required this.icon, required this.label});
   final Color color;
+  final IconData icon;
   final String label;
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
+      Icon(icon, size: 14, color: color),
       const SizedBox(width: 5),
       Text(label, style: const TextStyle(fontSize: 11, color: _muted)),
     ],
@@ -1706,11 +1705,34 @@ Color _categoryColor(String name) {
   if (n.contains('makan') || n.contains('food')) {
     return _coral;
   }
-  if (n.contains('transport') || n.contains('gojek') || n.contains('grab')) {
+  if (n.contains('transport') ||
+      n.contains('gojek') ||
+      n.contains('grab') ||
+      n.contains('motor')) {
     return _sage;
   }
   if (n.contains('belanja') || n.contains('shop')) {
     return const Color(0xffb497e8);
+  }
+  if (n.contains('sehat') || n.contains('health') || n.contains('kesehatan')) {
+    return const Color(0xff74b6ab);
+  }
+  if (n.contains('donasi') || n.contains('donation')) {
+    return const Color(0xffdf7e97);
+  }
+  if (n.contains('utility') ||
+      n.contains('tagihan') ||
+      n.contains('listrik') ||
+      n.contains('electricity') ||
+      n.contains('water') ||
+      n.contains('air')) {
+    return const Color(0xffd5a94f);
+  }
+  if (n.contains('payment') ||
+      n.contains('bayar') ||
+      n.contains('transfer') ||
+      n.contains('bank')) {
+    return const Color(0xff76a5cf);
   }
   return _gold;
 }
@@ -1720,13 +1742,36 @@ IconData _categoryIcon(String name) {
   if (n.contains('makan') || n.contains('food')) {
     return Icons.restaurant;
   }
-  if (n.contains('transport') || n.contains('gojek') || n.contains('grab')) {
+  if (n.contains('transport') ||
+      n.contains('gojek') ||
+      n.contains('grab') ||
+      n.contains('motor')) {
     return Icons.two_wheeler;
+  }
+  if (n.contains('sehat') || n.contains('health') || n.contains('kesehatan')) {
+    return Icons.medical_services;
+  }
+  if (n.contains('donasi') || n.contains('donation')) {
+    return Icons.volunteer_activism;
+  }
+  if (n.contains('utility') ||
+      n.contains('tagihan') ||
+      n.contains('listrik') ||
+      n.contains('electricity') ||
+      n.contains('water') ||
+      n.contains('air')) {
+    return Icons.bolt;
+  }
+  if (n.contains('payment') ||
+      n.contains('bayar') ||
+      n.contains('transfer') ||
+      n.contains('bank')) {
+    return Icons.payments;
   }
   if (n.contains('belanja') || n.contains('shop')) {
     return Icons.shopping_bag;
   }
-  return Icons.receipt_long;
+  return Icons.category;
 }
 
 String _money(double amount) => NumberFormat.currency(
