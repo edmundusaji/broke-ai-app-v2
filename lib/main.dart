@@ -297,6 +297,7 @@ class WelcomeFlow extends StatefulWidget {
 
 class _WelcomeFlowState extends State<WelcomeFlow> {
   final controller = PageController();
+  final Set<int> multiChoices = {0};
   int page = 0, choice = 0;
   final steps = const [
     (
@@ -385,6 +386,9 @@ class _WelcomeFlowState extends State<WelcomeFlow> {
                 onPageChanged: (value) => setState(() {
                   page = value;
                   choice = 0;
+                  multiChoices
+                    ..clear()
+                    ..add(0);
                 }),
                 itemCount: steps.length,
                 itemBuilder: (_, i) {
@@ -421,8 +425,19 @@ class _WelcomeFlowState extends State<WelcomeFlow> {
                         (index) => _SelectCard(
                           label: step.$4[index],
                           icon: step.$3[index],
-                          selected: choice == index,
-                          onTap: () => setState(() => choice = index),
+                          multiple: page == 1,
+                          selected: page == 1
+                              ? multiChoices.contains(index)
+                              : choice == index,
+                          onTap: () => setState(() {
+                            if (page == 1) {
+                              multiChoices.contains(index)
+                                  ? multiChoices.remove(index)
+                                  : multiChoices.add(index);
+                            } else {
+                              choice = index;
+                            }
+                          }),
                         ),
                       ),
                       const Spacer(),
@@ -433,23 +448,25 @@ class _WelcomeFlowState extends State<WelcomeFlow> {
             ),
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: page == 0
-                        ? null
-                        : () => controller.previousPage(
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOut,
-                          ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _cream,
-                      side: const BorderSide(color: Color(0xff58544b)),
-                      minimumSize: const Size(0, 54),
+                if (page > 0) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: page == 0
+                          ? null
+                          : () => controller.previousPage(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOut,
+                            ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _cream,
+                        side: const BorderSide(color: Color(0xff58544b)),
+                        minimumSize: const Size(0, 54),
+                      ),
+                      child: const Text('<  Back'),
                     ),
-                    child: const Text('<  Back'),
                   ),
-                ),
-                const SizedBox(width: 12),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: FilledButton(
                     onPressed: next,
@@ -810,13 +827,7 @@ class Dashboard extends ConsumerWidget {
                                         value: e.value.total,
                                         color: _categoryColor(e.value.name),
                                         radius: 55,
-                                        title:
-                                            '${(e.value.total / d.summary.total * 100).round()}%',
-                                        titleStyle: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 11,
-                                          color: _ink,
-                                        ),
+                                        title: '',
                                       ),
                                     )
                                     .toList(),
@@ -830,7 +841,8 @@ class Dashboard extends ConsumerWidget {
                                 .map(
                                   (c) => _Legend(
                                     color: _categoryColor(c.name),
-                                    label: c.name,
+                                    label:
+                                        '${c.name} (${(c.total / d.summary.total * 100).round()}%)',
                                   ),
                                 )
                                 .toList(),
@@ -1005,22 +1017,24 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
         ),
         const SizedBox(height: 28),
         const Text(
-          'Atau input dari notifikasi',
+          'Input Teks Notifikasi / Manual',
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: manual,
           maxLines: 3,
-          decoration: _input('Tempel teks notifikasi transaksi...'),
+          decoration: _input('Paste notification or transaction text here...'),
         ),
         const SizedBox(height: 8),
-        TextButton(
+        FilledButton(
           onPressed: notification,
-          child: const Text(
-            'Simpan input manual',
-            style: TextStyle(color: _gold),
+          style: FilledButton.styleFrom(
+            backgroundColor: _gold,
+            foregroundColor: _ink,
+            minimumSize: const Size(0, 52),
           ),
+          child: const Text('Proses Transaksi >'),
         ),
       ],
     ),
@@ -1103,7 +1117,7 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 22),
           const Text(
             'Account',
-            style: TextStyle(color: _muted, fontWeight: FontWeight.bold),
+            style: TextStyle(color: _cream, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           SurfaceCard(
@@ -1128,7 +1142,7 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           const Text(
             'Support',
-            style: TextStyle(color: _muted, fontWeight: FontWeight.bold),
+            style: TextStyle(color: _cream, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           SurfaceCard(
@@ -1227,11 +1241,13 @@ class _SelectCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.selected,
+    required this.multiple,
     required this.onTap,
   });
   final String label;
   final IconData icon;
   final bool selected;
+  final bool multiple;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Padding(
@@ -1243,10 +1259,10 @@ class _SelectCard extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xff3a311d) : _charcoal,
+          color: selected ? const Color(0xff3a311d) : const Color(0xff242424),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected ? _gold : const Color(0xff3b3830),
+            color: selected ? _gold : const Color(0xff333333),
             width: selected ? 1.6 : 1,
           ),
         ),
@@ -1272,7 +1288,8 @@ class _SelectCard extends StatelessWidget {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                shape: multiple ? BoxShape.rectangle : BoxShape.circle,
+                borderRadius: multiple ? BorderRadius.circular(7) : null,
                 color: selected ? _gold : Colors.transparent,
                 border: Border.all(color: selected ? _gold : _muted),
               ),
@@ -1446,7 +1463,7 @@ class _TransactionTile extends StatelessWidget {
         color: _categoryColor(transaction.kategori ?? ''),
         borderRadius: BorderRadius.circular(13),
       ),
-      child: Icon(Icons.receipt_outlined, color: _ink),
+      child: Icon(_categoryIcon(transaction.kategori ?? ''), color: _ink),
     ),
     title: Text(
       transaction.kategori ?? 'Lainnya',
@@ -1520,9 +1537,7 @@ class _ScanViewport extends StatelessWidget {
               Image.file(File(image!.path), fit: BoxFit.cover)
             else
               const ColoredBox(color: Color(0xff24221d)),
-            Container(
-              color: Colors.black.withValues(alpha: image == null ? .12 : .3),
-            ),
+            const CustomPaint(painter: _FocusMaskPainter()),
             Center(
               child: Container(
                 width: 225,
@@ -1596,6 +1611,31 @@ class _AiStatus extends StatelessWidget {
   );
 }
 
+class _FocusMaskPainter extends CustomPainter {
+  const _FocusMaskPainter();
+  @override
+  void paint(Canvas canvas, Size size) {
+    const width = 225.0;
+    const height = 300.0;
+    final cutout = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: size.center(Offset.zero),
+        width: width,
+        height: height,
+      ),
+      const Radius.circular(20),
+    );
+    final mask = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRRect(cutout);
+    canvas.drawPath(mask, Paint()..color = Colors.black.withValues(alpha: .5));
+  }
+
+  @override
+  bool shouldRepaint(covariant _FocusMaskPainter oldDelegate) => false;
+}
+
 class _SettingTile extends StatelessWidget {
   const _SettingTile({
     required this.icon,
@@ -1614,21 +1654,25 @@ class _SettingTile extends StatelessWidget {
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: danger ? _coral.withValues(alpha: .18) : _panel,
+        color: danger ? const Color(0xffff5252).withValues(alpha: .18) : _panel,
         borderRadius: BorderRadius.circular(11),
       ),
-      child: Icon(icon, size: 19, color: danger ? _coral : _gold),
+      child: Icon(
+        icon,
+        size: 19,
+        color: danger ? const Color(0xffff5252) : _gold,
+      ),
     ),
     title: Text(
       label,
       style: TextStyle(
         fontWeight: FontWeight.w600,
-        color: danger ? _coral : _cream,
+        color: danger ? const Color(0xffff5252) : _cream,
       ),
     ),
     trailing: Icon(
       Icons.arrow_forward_rounded,
-      color: danger ? _coral : _muted,
+      color: danger ? const Color(0xffff5252) : _muted,
       size: 18,
     ),
   );
@@ -1669,6 +1713,20 @@ Color _categoryColor(String name) {
     return const Color(0xffb497e8);
   }
   return _gold;
+}
+
+IconData _categoryIcon(String name) {
+  final n = name.toLowerCase();
+  if (n.contains('makan') || n.contains('food')) {
+    return Icons.restaurant;
+  }
+  if (n.contains('transport') || n.contains('gojek') || n.contains('grab')) {
+    return Icons.two_wheeler;
+  }
+  if (n.contains('belanja') || n.contains('shop')) {
+    return Icons.shopping_bag;
+  }
+  return Icons.receipt_long;
 }
 
 String _money(double amount) => NumberFormat.currency(
