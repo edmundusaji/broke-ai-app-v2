@@ -78,13 +78,16 @@ class Session {
     required this.token,
     required this.expiresAt,
     required this.username,
+    required this.isGuest,
     this.name,
     this.email,
   });
   final String token, username;
   final DateTime expiresAt;
+  final bool isGuest;
   final String? name, email;
-  bool get valid => expiresAt.isAfter(DateTime.now());
+  bool get valid =>
+      token.trim().isNotEmpty && expiresAt.isAfter(DateTime.now());
   String get displayName => (name?.isNotEmpty ?? false) ? name! : username;
   String get initials {
     final parts = displayName.trim().split(RegExp(r'\s+'));
@@ -100,21 +103,28 @@ class SessionStore {
   static const _key = 'session';
   final _storage = const FlutterSecureStorage();
   Future<Session?> read() async {
-    final raw = await _storage.read(key: _key);
-    if (raw == null) return null;
-    final j = jsonDecode(raw) as Map<String, dynamic>;
-    final session = Session(
-      token: j['token'] as String,
-      username: j['username'] as String,
-      name: j['name'] as String?,
-      email: j['email'] as String?,
-      expiresAt: DateTime.parse(j['expiresAt'] as String),
-    );
-    if (!session.valid) {
-      await clear();
-      return null;
+    try {
+      final raw = await _storage.read(key: _key);
+      if (raw == null) return null;
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      final session = Session(
+        token: j['token'] as String,
+        username: j['username'] as String,
+        isGuest: j['isGuest'] as bool? ?? false,
+        name: j['name'] as String?,
+        email: j['email'] as String?,
+        expiresAt: DateTime.parse(j['expiresAt'] as String),
+      );
+      if (session.valid) return session;
+    } catch (_) {
+      // Malformed or legacy session data must never block the entry screen.
     }
-    return session;
+    try {
+      await clear();
+    } catch (_) {
+      // Continue as signed out even if secure storage cannot be cleaned up.
+    }
+    return null;
   }
 
   Future<void> save(Session s) => _storage.write(
@@ -122,6 +132,7 @@ class SessionStore {
     value: jsonEncode({
       'token': s.token,
       'username': s.username,
+      'isGuest': s.isGuest,
       'name': s.name,
       'email': s.email,
       'expiresAt': s.expiresAt.toIso8601String(),
@@ -158,15 +169,30 @@ class ApiClient {
       '${await _base}auth/login',
       data: {'username': username.trim(), 'password': password},
     );
-    final j = r.data as Map<String, dynamic>;
-    final user = j['user'] as Map<String, dynamic>?;
+    return _sessionFromResponse(
+      r.data as Map<String, dynamic>,
+      fallbackUsername: username.trim(),
+    );
+  }
+
+  Future<Session> guestLogin() async {
+    final r = await _dio.post('${await _base}auth/guest-login');
+    return _sessionFromResponse(r.data as Map<String, dynamic>);
+  }
+
+  Session _sessionFromResponse(
+    Map<String, dynamic> json, {
+    String? fallbackUsername,
+  }) {
+    final user = json['user'] as Map<String, dynamic>?;
     return Session(
-      token: j['token'] as String,
-      username: username.trim(),
+      token: json['token'] as String,
+      username: json['username'] as String? ?? fallbackUsername ?? 'guest',
+      isGuest: json['isGuest'] as bool? ?? false,
       name: user?['name'] as String?,
       email: user?['email'] as String?,
       expiresAt: DateTime.now().add(
-        Duration(seconds: (j['expiresIn'] as num).toInt()),
+        Duration(seconds: (json['expiresIn'] as num).toInt()),
       ),
     );
   }
@@ -251,6 +277,7 @@ final apiProvider = Provider(
 final sessionProvider = FutureProvider<Session?>(
   (ref) => ref.watch(sessionStoreProvider).read(),
 );
+final showAuthProvider = StateProvider<bool>((_) => false);
 final selectedMonthProvider = StateProvider<DateTime>(
   (_) => DateTime(DateTime.now().year, DateTime.now().month),
 );
@@ -293,21 +320,28 @@ class AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
-  bool showSignIn = false;
   @override
-  Widget build(BuildContext context) => ref
-      .watch(sessionProvider)
-      .when(
-        loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator(color: _gold)),
-        ),
-        error: (e, _) => AuthScreen(error: e.toString()),
-        data: (session) => session != null
-            ? const Shell()
-            : showSignIn
-            ? const AuthScreen()
-            : WelcomeFlow(onFinish: () => setState(() => showSignIn = true)),
-      );
+  Widget build(BuildContext context) {
+    final showAuth = ref.watch(showAuthProvider);
+    return ref
+        .watch(sessionProvider)
+        .when(
+          loading: () => const Scaffold(
+            body: Center(child: CircularProgressIndicator(color: _gold)),
+          ),
+          error: (_, _) => const AccountOptionScreen(
+            startupError: 'Unable to restore your session. Please try again.',
+          ),
+          data: (session) => session != null
+              ? const Shell()
+              : showAuth
+              ? AuthScreen(
+                  onBack: () =>
+                      ref.read(showAuthProvider.notifier).state = false,
+                )
+              : const AccountOptionScreen(),
+        );
+  }
 }
 
 class WelcomeFlow extends StatefulWidget {
@@ -509,9 +543,129 @@ class _WelcomeFlowState extends State<WelcomeFlow> {
   );
 }
 
+class AccountOptionScreen extends ConsumerStatefulWidget {
+  const AccountOptionScreen({super.key, this.startupError});
+
+  final String? startupError;
+
+  @override
+  ConsumerState<AccountOptionScreen> createState() =>
+      _AccountOptionScreenState();
+}
+
+class _AccountOptionScreenState extends ConsumerState<AccountOptionScreen> {
+  bool loading = false;
+  String? error;
+
+  Future<void> _tryNow() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final session = await ref.read(apiProvider).guestLogin();
+      await ref.read(sessionStoreProvider).save(session);
+      ref.read(showAuthProvider.notifier).state = false;
+      ref.invalidate(sessionProvider);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          error = 'Unable to start Guest Mode. Please try again.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _BrandMark(),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'How would you like to start?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Explore manual expense tracking instantly, or sign in to unlock every AI feature.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: _muted, height: 1.45),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _panel,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xff3d3930)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.rocket_launch_outlined, color: _gold),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Guest Mode includes the dashboard, history, and manual transactions.',
+                            style: TextStyle(color: _cream, height: 1.35),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if ((error ?? widget.startupError) != null) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      (error ?? widget.startupError)!,
+                      style: const TextStyle(color: _coral),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: loading ? null : _tryNow,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _gold,
+                      foregroundColor: _ink,
+                      minimumSize: const Size(0, 54),
+                    ),
+                    child: Text(
+                      loading ? 'Starting Guest Mode...' : 'Try Now  >',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: loading
+                        ? null
+                        : () =>
+                              ref.read(showAuthProvider.notifier).state = true,
+                    style: _secondaryButton(),
+                    child: const Text('Sign In / Register'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key, this.error});
+  const AuthScreen({super.key, this.error, this.onBack});
   final String? error;
+  final VoidCallback? onBack;
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
@@ -585,6 +739,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (widget.onBack != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          tooltip: 'Back to start options',
+                          onPressed: loading ? null : widget.onBack,
+                          icon: const Icon(Icons.arrow_back_rounded),
+                        ),
+                      ),
                     const _BrandMark(),
                     const SizedBox(height: 28),
                     Text(
@@ -1491,6 +1654,7 @@ class ProfileScreen extends ConsumerWidget {
                   label: 'Log out',
                   danger: true,
                   onTap: () async {
+                    ref.read(showAuthProvider.notifier).state = false;
                     await ref.read(sessionStoreProvider).clear();
                     ref.invalidate(sessionProvider);
                   },
