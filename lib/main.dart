@@ -11,6 +11,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'payment_method_picker.dart';
+
 const _ink = Color(0xff111111);
 const _charcoal = Color(0xff1d1c19);
 const _panel = Color(0xff292720);
@@ -76,13 +78,11 @@ class Session {
     required this.token,
     required this.expiresAt,
     required this.username,
-    required this.isGuest,
     this.name,
     this.email,
   });
   final String token, username;
   final DateTime expiresAt;
-  final bool isGuest;
   final String? name, email;
   bool get valid => expiresAt.isAfter(DateTime.now());
   String get displayName => (name?.isNotEmpty ?? false) ? name! : username;
@@ -106,7 +106,6 @@ class SessionStore {
     final session = Session(
       token: j['token'] as String,
       username: j['username'] as String,
-      isGuest: j['isGuest'] as bool? ?? false,
       name: j['name'] as String?,
       email: j['email'] as String?,
       expiresAt: DateTime.parse(j['expiresAt'] as String),
@@ -123,7 +122,6 @@ class SessionStore {
     value: jsonEncode({
       'token': s.token,
       'username': s.username,
-      'isGuest': s.isGuest,
       'name': s.name,
       'email': s.email,
       'expiresAt': s.expiresAt.toIso8601String(),
@@ -161,44 +159,14 @@ class ApiClient {
       data: {'username': username.trim(), 'password': password},
     );
     final j = r.data as Map<String, dynamic>;
-    return _sessionFromResponse(j, fallbackUsername: username.trim());
-  }
-
-  Future<Session> guestLogin() async {
-    final r = await _dio.post('${await _base}auth/guest-login');
-    return _sessionFromResponse(r.data as Map<String, dynamic>);
-  }
-
-  Future<Session> upgradeGuest({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
-    final r = await _dio.post(
-      '${await _base}auth/upgrade-guest',
-      data: {
-        'namaLengkap': name.trim(),
-        'email': email.trim(),
-        'password': password,
-      },
-      options: await _options(),
-    );
-    return _sessionFromResponse(r.data as Map<String, dynamic>);
-  }
-
-  Session _sessionFromResponse(
-    Map<String, dynamic> json, {
-    String? fallbackUsername,
-  }) {
-    final user = json['user'] as Map<String, dynamic>?;
+    final user = j['user'] as Map<String, dynamic>?;
     return Session(
-      token: json['token'] as String,
-      username: json['username'] as String? ?? fallbackUsername ?? 'user',
-      isGuest: json['isGuest'] as bool? ?? false,
+      token: j['token'] as String,
+      username: username.trim(),
       name: user?['name'] as String?,
       email: user?['email'] as String?,
       expiresAt: DateTime.now().add(
-        Duration(seconds: (json['expiresIn'] as num).toInt()),
+        Duration(seconds: (j['expiresIn'] as num).toInt()),
       ),
     );
   }
@@ -267,34 +235,13 @@ class ApiClient {
         'date': DateFormat('yyyy-MM-dd').format(date),
         'amount': amount,
         'category': category.trim(),
+        // The backend schema still stores the selected payment method here.
         'merchant': merchant.trim(),
       },
       options: await _options(),
     );
     return Transaction.fromJson(r.data as Map<String, dynamic>);
   }
-
-  Future<void> updateTransaction({
-    required int id,
-    required DateTime date,
-    required double amount,
-    required String category,
-    required String merchant,
-  }) async {
-    await _dio.put(
-      '${await _base}expense/$id',
-      data: {
-        'date': DateFormat('yyyy-MM-dd').format(date),
-        'amount': amount,
-        'category': category.trim(),
-        'merchant': merchant.trim(),
-      },
-      options: await _options(),
-    );
-  }
-
-  Future<void> deleteTransaction(int id) async =>
-      _dio.delete('${await _base}expense/$id', options: await _options());
 }
 
 final sessionStoreProvider = Provider((_) => SessionStore());
@@ -346,59 +293,21 @@ class AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
-  bool onboardingReady = false;
-  bool onboardingCompleted = false;
-  bool showAccountOptions = false;
+  bool showSignIn = false;
   @override
-  void initState() {
-    super.initState();
-    _loadOnboardingState();
-  }
-
-  Future<void> _loadOnboardingState() async {
-    final preferences = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        onboardingCompleted =
-            preferences.getBool('onboarding_completed') ?? false;
-        onboardingReady = true;
-      });
-    }
-  }
-
-  void _showAccountOptions() => setState(() => showAccountOptions = true);
-
-  Future<void> _completeOnboarding() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool('onboarding_completed', true);
-    if (mounted) {
-      setState(() {
-        onboardingCompleted = true;
-        showAccountOptions = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => !onboardingReady
-      ? const Scaffold(
+  Widget build(BuildContext context) => ref
+      .watch(sessionProvider)
+      .when(
+        loading: () => const Scaffold(
           body: Center(child: CircularProgressIndicator(color: _gold)),
-        )
-      : ref
-            .watch(sessionProvider)
-            .when(
-              loading: () => const Scaffold(
-                body: Center(child: CircularProgressIndicator(color: _gold)),
-              ),
-              error: (e, _) => AuthScreen(error: e.toString()),
-              data: (session) => session != null
-                  ? const Shell()
-                  : showAccountOptions
-                  ? AccountOptionScreen(onComplete: _completeOnboarding)
-                  : onboardingCompleted
-                  ? const AuthScreen()
-                  : WelcomeFlow(onFinish: _showAccountOptions),
-            );
+        ),
+        error: (e, _) => AuthScreen(error: e.toString()),
+        data: (session) => session != null
+            ? const Shell()
+            : showSignIn
+            ? const AuthScreen()
+            : WelcomeFlow(onFinish: () => setState(() => showSignIn = true)),
+      );
 }
 
 class WelcomeFlow extends StatefulWidget {
@@ -600,120 +509,6 @@ class _WelcomeFlowState extends State<WelcomeFlow> {
   );
 }
 
-class AccountOptionScreen extends ConsumerStatefulWidget {
-  const AccountOptionScreen({super.key, required this.onComplete});
-  final Future<void> Function() onComplete;
-
-  @override
-  ConsumerState<AccountOptionScreen> createState() =>
-      _AccountOptionScreenState();
-}
-
-class _AccountOptionScreenState extends ConsumerState<AccountOptionScreen> {
-  bool loading = false;
-  String? error;
-
-  Future<void> _tryNow() async {
-    setState(() {
-      loading = true;
-      error = null;
-    });
-    try {
-      final session = await ref.read(apiProvider).guestLogin();
-      await ref.read(sessionStoreProvider).save(session);
-      await widget.onComplete();
-      ref.invalidate(sessionProvider);
-    } catch (_) {
-      if (mounted) {
-        setState(() => error = 'Unable to start Guest Mode. Please try again.');
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  Future<void> _signIn() async {
-    await widget.onComplete();
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(22),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: SurfaceCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const _BrandMark(),
-                  const SizedBox(height: 28),
-                  const Text(
-                    'How would you like to start?',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Explore manual expense tracking instantly, or sign in to unlock every AI feature.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: _muted, height: 1.45),
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _panel,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xff3d3930)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.rocket_launch_outlined, color: _gold),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Guest Mode includes the dashboard, history, and manual transactions.',
-                            style: TextStyle(color: _cream, height: 1.35),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (error != null) ...[
-                    const SizedBox(height: 14),
-                    Text(error!, style: const TextStyle(color: _coral)),
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: loading ? null : _tryNow,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _gold,
-                      foregroundColor: _ink,
-                      minimumSize: const Size(0, 54),
-                    ),
-                    child: Text(
-                      loading ? 'Starting Guest Mode...' : 'Try Now  >',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton(
-                    onPressed: loading ? null : _signIn,
-                    style: _secondaryButton(),
-                    child: const Text('Sign In / Register'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key, this.error});
   final String? error;
@@ -874,8 +669,6 @@ class _ShellState extends ConsumerState<Shell> {
   int page = 0;
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(sessionProvider).value;
-    final isGuest = session?.isGuest ?? false;
     final pages = [
       const Dashboard(),
       const CaptureScreen(),
@@ -885,6 +678,7 @@ class _ShellState extends ConsumerState<Shell> {
       body: pages[page],
       floatingActionButton: page == 0
           ? FloatingActionButton(
+              tooltip: 'Add manual transaction',
               backgroundColor: _gold,
               foregroundColor: _ink,
               onPressed: () => showModalBottomSheet<void>(
@@ -905,23 +699,17 @@ class _ShellState extends ConsumerState<Shell> {
           backgroundColor: Colors.transparent,
           indicatorColor: const Color(0xff51401b),
           selectedIndex: page,
-          onDestinationSelected: (i) {
-            if (i == 1 && isGuest) {
-              _showGuestFeatureGate(context);
-              return;
-            }
-            setState(() => page = i);
-          },
-          destinations: [
-            const NavigationDestination(
+          onDestinationSelected: (i) => setState(() => page = i),
+          destinations: const [
+            NavigationDestination(
               icon: Icon(Icons.grid_view_rounded),
               label: 'Home',
             ),
             NavigationDestination(
-              icon: _GuestAwareScanIcon(locked: isGuest),
+              icon: Icon(Icons.document_scanner_outlined),
               label: 'Scan',
             ),
-            const NavigationDestination(
+            NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               label: 'Profile',
             ),
@@ -930,23 +718,6 @@ class _ShellState extends ConsumerState<Shell> {
       ),
     );
   }
-
-  Future<void> _showGuestFeatureGate(BuildContext parentContext) =>
-      showModalBottomSheet<void>(
-        context: parentContext,
-        backgroundColor: Colors.transparent,
-        builder: (sheetContext) => _GuestFeatureGateSheet(
-          onUpgrade: () {
-            Navigator.of(sheetContext).pop();
-            showModalBottomSheet<void>(
-              context: parentContext,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (_) => const GuestUpgradeSheet(),
-            );
-          },
-        ),
-      );
 }
 
 class Dashboard extends ConsumerWidget {
@@ -994,17 +765,6 @@ class Dashboard extends ConsumerWidget {
                   ),
                 ],
               ),
-              if (user?.isGuest ?? false) ...[
-                const SizedBox(height: 14),
-                _GuestModeBanner(
-                  onUpgrade: () => showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => const GuestUpgradeSheet(),
-                  ),
-                ),
-              ],
               const SizedBox(height: 22),
               SurfaceCard(
                 tint: _goldDark,
@@ -1129,28 +889,9 @@ class Dashboard extends ConsumerWidget {
                       ),
               ),
               const SizedBox(height: 22),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Aktivitas terbaru',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const MonthlyHistoryScreen(),
-                      ),
-                    ),
-                    icon: const Icon(Icons.history_rounded, size: 18),
-                    label: const Text('History'),
-                    style: TextButton.styleFrom(foregroundColor: _gold),
-                  ),
-                ],
+              const Text(
+                'Aktivitas terbaru',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 10),
               SurfaceCard(
@@ -1178,164 +919,55 @@ class Dashboard extends ConsumerWidget {
   }
 }
 
-class MonthlyHistoryScreen extends ConsumerWidget {
-  const MonthlyHistoryScreen({super.key});
+const _manualTransactionCategories = <String>[
+  'Food',
+  'Transport',
+  'Lifestyle',
+  'Health',
+  'Donation',
+  'Utility',
+  'Payment',
+];
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final date = ref.watch(selectedMonthProvider);
-    final dashboard = ref.watch(dashboardProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Monthly history'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left_rounded),
-            onPressed: () => ref.read(selectedMonthProvider.notifier).state =
-                DateTime(date.year, date.month - 1),
-          ),
-          Center(
-            child: Text(
-              DateFormat('MMM y', 'id_ID').format(date),
-              style: const TextStyle(color: _gold, fontWeight: FontWeight.bold),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right_rounded),
-            onPressed: () => ref.read(selectedMonthProvider.notifier).state =
-                DateTime(date.year, date.month + 1),
-          ),
-        ],
-      ),
-      body: dashboard.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator(color: _gold)),
-        error: (error, _) => _DashboardError(error: error.toString()),
-        data: (data) => data.history.isEmpty
-            ? const Center(
-                child: Text(
-                  'No transactions this month.',
-                  style: TextStyle(color: _muted),
-                ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                itemCount: data.history.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (_, index) => SurfaceCard(
-                  padding: EdgeInsets.zero,
-                  child: _HistoryTransactionTile(
-                    transaction: data.history[index],
-                  ),
-                ),
-              ),
-      ),
-    );
+String? _canonicalManualCategory(String? value) {
+  final normalized = value?.trim().toLowerCase() ?? '';
+  if (normalized.isEmpty) return null;
+  for (final category in _manualTransactionCategories) {
+    if (category.toLowerCase() == normalized) return category;
   }
-}
-
-class _HistoryTransactionTile extends ConsumerWidget {
-  const _HistoryTransactionTile({required this.transaction});
-  final Transaction transaction;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-    leading: Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        color: _categoryColor(transaction.kategori ?? ''),
-        borderRadius: BorderRadius.circular(13),
-      ),
-      child: Icon(_categoryIcon(transaction.kategori ?? ''), color: _ink),
-    ),
-    title: Text(
-      transaction.kategori ?? 'Other',
-      style: const TextStyle(fontWeight: FontWeight.w700),
-    ),
-    subtitle: Text(
-      '${transaction.merchant ?? transaction.tipeInput ?? '-'} • ${_shortDate(transaction.tanggal)}',
-      style: const TextStyle(color: _muted),
-    ),
-    trailing: PopupMenuButton<String>(
-      icon: const Icon(Icons.more_horiz_rounded, color: _cream),
-      onSelected: (value) async {
-        if (transaction.id == null) return;
-        if (value == 'edit') {
-          await showModalBottomSheet<void>(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => ManualTransactionSheet(transaction: transaction),
-          );
-        } else {
-          final shouldDelete = await showDialog<bool>(
-            context: context,
-            builder: (dialogContext) => AlertDialog(
-              title: const Text('Delete transaction?'),
-              content: const Text(
-                'This transaction will be permanently removed.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xffff5252),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Delete'),
-                ),
-              ],
-            ),
-          );
-          if (shouldDelete == true && context.mounted) {
-            try {
-              await ref.read(apiProvider).deleteTransaction(transaction.id!);
-              ref.invalidate(dashboardProvider);
-            } catch (_) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Unable to delete transaction.'),
-                  ),
-                );
-              }
-            }
-          }
-        }
-      },
-      itemBuilder: (_) => const [
-        PopupMenuItem(
-          value: 'edit',
-          child: ListTile(
-            leading: Icon(Icons.edit_outlined),
-            title: Text('Edit'),
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: ListTile(
-            leading: Icon(Icons.delete_outline, color: Color(0xffff5252)),
-            title: Text('Delete', style: TextStyle(color: Color(0xffff5252))),
-          ),
-        ),
-      ],
-    ),
-  );
+  if (normalized.contains('makan') || normalized.contains('culinary')) {
+    return 'Food';
+  }
+  if (normalized.contains('gojek') ||
+      normalized.contains('grab') ||
+      normalized.contains('motor')) {
+    return 'Transport';
+  }
+  if (normalized.contains('belanja') || normalized.contains('shop')) {
+    return 'Lifestyle';
+  }
+  if (normalized.contains('sehat') || normalized.contains('kesehatan')) {
+    return 'Health';
+  }
+  if (normalized.contains('donasi')) return 'Donation';
+  if (normalized.contains('tagihan') ||
+      normalized.contains('listrik') ||
+      normalized.contains('water')) {
+    return 'Utility';
+  }
+  if (normalized.contains('bayar') ||
+      normalized.contains('transfer') ||
+      normalized.contains('bank')) {
+    return 'Payment';
+  }
+  return null;
 }
 
 class ManualTransactionSheet extends ConsumerStatefulWidget {
   const ManualTransactionSheet({super.key, this.transaction});
+
   final Transaction? transaction;
+
   @override
   ConsumerState<ManualTransactionSheet> createState() =>
       _ManualTransactionSheetState();
@@ -1344,66 +976,71 @@ class ManualTransactionSheet extends ConsumerStatefulWidget {
 class _ManualTransactionSheetState
     extends ConsumerState<ManualTransactionSheet> {
   late final TextEditingController amount;
-  late final TextEditingController category;
-  late final TextEditingController merchant;
   late DateTime date;
+  String? category;
+  String? paymentMethod;
   bool saving = false;
-  bool get editing => widget.transaction?.id != null;
+  bool showValidation = false;
 
   @override
   void initState() {
     super.initState();
     final transaction = widget.transaction;
     amount = TextEditingController(text: transaction?.jumlah?.toString() ?? '');
-    category = TextEditingController(text: transaction?.kategori ?? '');
-    merchant = TextEditingController(text: transaction?.merchant ?? '');
+    category = _canonicalManualCategory(transaction?.kategori);
+    paymentMethod = transaction?.merchant?.trim().isEmpty == false
+        ? transaction!.merchant!.trim()
+        : null;
     date = DateTime.tryParse(transaction?.tanggal ?? '') ?? DateTime.now();
   }
 
   @override
   void dispose() {
     amount.dispose();
-    category.dispose();
-    merchant.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectPaymentMethod() async {
+    final selected = await showPaymentMethodPicker(
+      context,
+      selectedValue: paymentMethod,
+    );
+    if (selected != null && mounted) {
+      setState(() {
+        paymentMethod = selected;
+        showValidation = false;
+      });
+    }
   }
 
   Future<void> submit() async {
     final parsedAmount = double.tryParse(amount.text.replaceAll(',', '.'));
     if (parsedAmount == null ||
         parsedAmount <= 0 ||
-        category.text.trim().isEmpty) {
+        category == null ||
+        paymentMethod == null) {
+      setState(() => showValidation = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid amount and category.')),
+        const SnackBar(
+          content: Text('Complete the amount, category, and payment method.'),
+        ),
       );
       return;
     }
+
     setState(() => saving = true);
     try {
-      if (editing) {
-        await ref
-            .read(apiProvider)
-            .updateTransaction(
-              id: widget.transaction!.id!,
-              date: date,
-              amount: parsedAmount,
-              category: category.text,
-              merchant: merchant.text,
-            );
-      } else {
-        await ref
-            .read(apiProvider)
-            .createManualTransaction(
-              date: date,
-              amount: parsedAmount,
-              category: category.text,
-              merchant: merchant.text,
-            );
-      }
+      await ref
+          .read(apiProvider)
+          .createManualTransaction(
+            date: date,
+            amount: parsedAmount,
+            category: category!,
+            // Payment remains mapped to merchant for backend DTO compatibility.
+            merchant: paymentMethod!,
+          );
       ref.invalidate(dashboardProvider);
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      if (mounted) Navigator.of(context).pop();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1424,69 +1061,150 @@ class _ManualTransactionSheetState
       MediaQuery.viewInsetsOf(context).bottom + 12,
     ),
     child: SurfaceCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  editing ? 'Edit transaction' : 'Manual transaction',
-                  style: const TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Manual transaction',
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
                   ),
                 ),
-              ),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2100),
-                initialDate: date,
-              );
-              if (picked != null) setState(() => date = picked);
-            },
-            icon: const Icon(Icons.calendar_today_outlined),
-            label: Text(DateFormat.yMMMMd('id_ID').format(date)),
-            style: _secondaryButton(),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: amount,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: _input('Amount'),
-          ),
-          const SizedBox(height: 10),
-          TextField(controller: category, decoration: _input('Category')),
-          const SizedBox(height: 10),
-          TextField(controller: merchant, decoration: _input('Merchant')),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: saving ? null : submit,
-            style: FilledButton.styleFrom(
-              backgroundColor: _gold,
-              foregroundColor: _ink,
-              minimumSize: const Size(0, 52),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
             ),
-            child: Text(
-              saving
-                  ? 'Saving...'
-                  : editing
-                  ? 'Save changes'
-                  : 'Add transaction',
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                  initialDate: date,
+                );
+                if (picked != null) setState(() => date = picked);
+              },
+              icon: const Icon(Icons.calendar_today_outlined),
+              label: Text(DateFormat.yMMMMd('id_ID').format(date)),
+              style: _secondaryButton(),
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            TextField(
+              controller: amount,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              onChanged: (_) => setState(() => showValidation = false),
+              decoration: _input('Amount').copyWith(
+                prefixText: 'Rp ',
+                errorText:
+                    showValidation &&
+                        (double.tryParse(amount.text.replaceAll(',', '.')) ??
+                                0) <=
+                            0
+                    ? 'Enter a valid amount'
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: category,
+              isExpanded: true,
+              dropdownColor: _panel,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _gold),
+              decoration: _input('Category').copyWith(
+                errorText: showValidation && category == null
+                    ? 'Select a category'
+                    : null,
+              ),
+              items: _manualTransactionCategories
+                  .map(
+                    (option) => DropdownMenuItem(
+                      value: option,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _categoryIcon(option),
+                            size: 19,
+                            color: _categoryColor(option),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(option),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() {
+                category = value;
+                showValidation = false;
+              }),
+            ),
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: _selectPaymentMethod,
+              borderRadius: BorderRadius.circular(15),
+              child: InputDecorator(
+                isEmpty: paymentMethod == null,
+                decoration: _input('').copyWith(
+                  errorText: showValidation && paymentMethod == null
+                      ? 'Select a payment method'
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      paymentMethod == null
+                          ? Icons.account_balance_wallet_outlined
+                          : Icons.account_balance_wallet_rounded,
+                      color: paymentMethod == null ? _muted : _gold,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        paymentMethod ?? 'Choose payment method',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: paymentMethod == null ? _muted : _cream,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: _gold),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: saving ? null : submit,
+              style: FilledButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: _ink,
+                minimumSize: const Size(0, 52),
+              ),
+              icon: saving
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: _ink,
+                      ),
+                    )
+                  : const Icon(Icons.add_rounded),
+              label: Text(saving ? 'Saving...' : 'Add transaction'),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -1566,106 +1284,90 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isGuest = ref.watch(sessionProvider).value?.isGuest ?? false;
-    if (isGuest) {
-      return _GuestLockedAiScreen(
-        onUpgrade: () => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => const GuestUpgradeSheet(),
+  Widget build(BuildContext context) => SafeArea(
+    child: ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Scan a receipt',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+              ),
+            ),
+            _RoundButton(
+              icon: Icons.close_rounded,
+              onTap: () => setState(() => image = null),
+            ),
+          ],
         ),
-      );
-    }
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
+        const SizedBox(height: 8),
+        const Text(
+          'Posisikan seluruh struk di dalam area fokus.',
+          style: TextStyle(color: _muted),
+        ),
+        const SizedBox(height: 22),
+        _ScanViewport(image: image, loading: busy),
+        const SizedBox(height: 16),
+        if (busy)
+          const _AiStatus()
+        else
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Scan a receipt',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => pick(ImageSource.camera),
+                  icon: const Icon(Icons.camera_alt_outlined),
+                  label: const Text('Camera'),
+                  style: _secondaryButton(),
                 ),
               ),
-              if (image != null)
-                _RoundButton(
-                  icon: Icons.close_rounded,
-                  onTap: () => setState(() => image = null),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => pick(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_outlined),
+                  label: const Text('Gallery'),
+                  style: _secondaryButton(),
                 ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Posisikan seluruh struk di dalam area fokus.',
-            style: TextStyle(color: _muted),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: image == null || busy ? null : send,
+          style: FilledButton.styleFrom(
+            backgroundColor: _gold,
+            foregroundColor: _ink,
+            minimumSize: const Size(0, 54),
           ),
-          const SizedBox(height: 22),
-          _ScanViewport(image: image, loading: busy),
-          const SizedBox(height: 16),
-          if (busy)
-            const _AiStatus()
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => pick(ImageSource.camera),
-                    icon: const Icon(Icons.camera_alt_outlined),
-                    label: const Text('Camera'),
-                    style: _secondaryButton(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => pick(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_outlined),
-                    label: const Text('Gallery'),
-                    style: _secondaryButton(),
-                  ),
-                ),
-              ],
-            ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: image == null || busy ? null : send,
-            style: FilledButton.styleFrom(
-              backgroundColor: _gold,
-              foregroundColor: _ink,
-              minimumSize: const Size(0, 54),
-            ),
-            child: Text(busy ? 'Analyzing with AI...' : 'Analyze receipt  >'),
+          child: Text(busy ? 'Analyzing with AI...' : 'Analyze receipt  >'),
+        ),
+        const SizedBox(height: 28),
+        const Text(
+          'Input Teks Notifikasi / Manual',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: manual,
+          maxLines: 3,
+          decoration: _input('Paste notification or transaction text here...'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: notification,
+          style: FilledButton.styleFrom(
+            backgroundColor: _gold,
+            foregroundColor: _ink,
+            minimumSize: const Size(0, 52),
           ),
-          const SizedBox(height: 28),
-          const Text(
-            'Input Teks Notifikasi / Manual',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: manual,
-            maxLines: 3,
-            decoration: _input(
-              'Paste notification or transaction text here...',
-            ),
-          ),
-          const SizedBox(height: 8),
-          FilledButton(
-            onPressed: notification,
-            style: FilledButton.styleFrom(
-              backgroundColor: _gold,
-              foregroundColor: _ink,
-              minimumSize: const Size(0, 52),
-            ),
-            child: const Text('Proses Transaksi >'),
-          ),
-        ],
-      ),
-    );
-  }
+          child: const Text('Proses Transaksi >'),
+        ),
+      ],
+    ),
+  );
 }
 
 class ProfileScreen extends ConsumerWidget {
@@ -1707,59 +1409,12 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  s?.isGuest == true
-                      ? 'Guest Mode'
-                      : s?.email ?? 'email belum tersedia',
+                  s?.email ?? 'email belum tersedia',
                   style: const TextStyle(color: _muted),
                 ),
               ],
             ),
           ),
-          if (s?.isGuest ?? false) ...[
-            const SizedBox(height: 16),
-            SurfaceCard(
-              tint: _goldDark,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.lock_open_rounded, color: _cream),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Unlock the full Broke.AI experience',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Create your free account to keep your manual history and unlock AI scanning.',
-                    style: TextStyle(color: _cream, height: 1.4),
-                  ),
-                  const SizedBox(height: 14),
-                  FilledButton(
-                    onPressed: () => showModalBottomSheet<void>(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (_) => const GuestUpgradeSheet(),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _gold,
-                      foregroundColor: _ink,
-                    ),
-                    child: const Text('Create free account  >'),
-                  ),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
           SurfaceCard(
             tint: _goldDark,
@@ -1847,298 +1502,6 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-class GuestUpgradeSheet extends ConsumerStatefulWidget {
-  const GuestUpgradeSheet({super.key});
-
-  @override
-  ConsumerState<GuestUpgradeSheet> createState() => _GuestUpgradeSheetState();
-}
-
-class _GuestUpgradeSheetState extends ConsumerState<GuestUpgradeSheet> {
-  final name = TextEditingController();
-  final email = TextEditingController();
-  final password = TextEditingController();
-  final confirmPassword = TextEditingController();
-  bool loading = false;
-  String? error;
-
-  @override
-  void dispose() {
-    name.dispose();
-    email.dispose();
-    password.dispose();
-    confirmPassword.dispose();
-    super.dispose();
-  }
-
-  Future<void> submit() async {
-    if (name.text.trim().isEmpty ||
-        email.text.trim().isEmpty ||
-        password.text.isEmpty) {
-      setState(() => error = 'Complete all account fields.');
-      return;
-    }
-    if (password.text != confirmPassword.text) {
-      setState(() => error = 'Passwords do not match.');
-      return;
-    }
-    setState(() {
-      loading = true;
-      error = null;
-    });
-    try {
-      final session = await ref
-          .read(apiProvider)
-          .upgradeGuest(
-            name: name.text,
-            email: email.text,
-            password: password.text,
-          );
-      await ref.read(sessionStoreProvider).save(session);
-      ref.invalidate(sessionProvider);
-      ref.invalidate(dashboardProvider);
-      if (mounted) Navigator.of(context).pop();
-    } on DioException catch (exception) {
-      if (mounted) {
-        setState(
-          () => error = _apiErrorMessage(
-            exception,
-            fallback: 'Unable to create your account.',
-          ),
-        );
-      }
-    } catch (_) {
-      if (mounted) setState(() => error = 'Unable to create your account.');
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      12,
-      12,
-      12,
-      MediaQuery.viewInsetsOf(context).bottom + 12,
-    ),
-    child: SingleChildScrollView(
-      child: SurfaceCard(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Create your free account',
-                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const Text(
-              'Your guest transactions stay attached to this account.',
-              style: TextStyle(color: _muted, height: 1.4),
-            ),
-            const SizedBox(height: 18),
-            TextField(controller: name, decoration: _input('Full name')),
-            const SizedBox(height: 10),
-            TextField(
-              controller: email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: _input('Email'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: password,
-              obscureText: true,
-              decoration: _input('Password'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: confirmPassword,
-              obscureText: true,
-              decoration: _input('Confirm password'),
-            ),
-            if (error != null) ...[
-              const SizedBox(height: 12),
-              Text(error!, style: const TextStyle(color: _coral)),
-            ],
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: loading ? null : submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: _ink,
-                minimumSize: const Size(0, 52),
-              ),
-              child: Text(
-                loading ? 'Creating account...' : 'Create account  >',
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _GuestFeatureGateSheet extends StatelessWidget {
-  const _GuestFeatureGateSheet({required this.onUpgrade});
-  final VoidCallback onUpgrade;
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: SurfaceCard(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _HeroIcon(icon: Icons.lock_rounded, size: 72),
-            const SizedBox(height: 18),
-            const Text(
-              'Unlock AI features',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Want to unlock AI Receipt Scanning & Auto-Parsing? Sign up for a free account to continue!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, height: 1.45),
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: onUpgrade,
-              style: FilledButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: _ink,
-                minimumSize: const Size(0, 52),
-              ),
-              child: const Text('Create free account  >'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Maybe later', style: TextStyle(color: _cream)),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _GuestLockedAiScreen extends StatelessWidget {
-  const _GuestLockedAiScreen({required this.onUpgrade});
-  final VoidCallback onUpgrade;
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          children: [
-            const _HeroIcon(icon: Icons.lock_rounded, size: 100),
-            const SizedBox(height: 24),
-            const Text(
-              'AI tools are locked in Guest Mode',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Create a free account to scan receipts and automatically parse payment notifications.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, height: 1.45),
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: onUpgrade,
-              style: FilledButton.styleFrom(
-                backgroundColor: _gold,
-                foregroundColor: _ink,
-                minimumSize: const Size(220, 52),
-              ),
-              icon: const Icon(Icons.lock_open_rounded),
-              label: const Text('Unlock AI features'),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _GuestModeBanner extends StatelessWidget {
-  const _GuestModeBanner({required this.onUpgrade});
-  final VoidCallback onUpgrade;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onUpgrade,
-    borderRadius: BorderRadius.circular(18),
-    child: Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xff322b1c),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _goldDark),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.person_outline_rounded, color: _gold),
-          SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Guest Mode',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Data is saved temporarily · Tap to create an account',
-                  style: TextStyle(color: _muted, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.arrow_forward_rounded, color: _gold, size: 18),
-        ],
-      ),
-    ),
-  );
-}
-
-class _GuestAwareScanIcon extends StatelessWidget {
-  const _GuestAwareScanIcon({required this.locked});
-  final bool locked;
-
-  @override
-  Widget build(BuildContext context) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      const Icon(Icons.document_scanner_outlined),
-      if (locked)
-        const Positioned(
-          right: -7,
-          top: -7,
-          child: Icon(Icons.lock_rounded, size: 13, color: _gold),
-        ),
-    ],
-  );
 }
 
 class SurfaceCard extends StatelessWidget {
@@ -2641,17 +2004,6 @@ class _SettingTile extends StatelessWidget {
   );
 }
 
-String _apiErrorMessage(DioException exception, {required String fallback}) {
-  final data = exception.response?.data;
-  if (data is Map<String, dynamic>) {
-    for (final key in ['detail', 'message', 'error']) {
-      final value = data[key];
-      if (value is String && value.trim().isNotEmpty) return value;
-    }
-  }
-  return fallback;
-}
-
 InputDecoration _input(String label) => InputDecoration(
   labelText: label,
   labelStyle: const TextStyle(color: _muted),
@@ -2686,7 +2038,7 @@ Color _categoryColor(String name) {
       n.contains('motor')) {
     return _sage;
   }
-  if (n.contains('belanja') || n.contains('shop')) {
+  if (n.contains('belanja') || n.contains('shop') || n.contains('lifestyle')) {
     return const Color(0xffb497e8);
   }
   if (n.contains('sehat') || n.contains('health') || n.contains('kesehatan')) {
@@ -2743,7 +2095,7 @@ IconData _categoryIcon(String name) {
       n.contains('bank')) {
     return Icons.payments;
   }
-  if (n.contains('belanja') || n.contains('shop')) {
+  if (n.contains('belanja') || n.contains('shop') || n.contains('lifestyle')) {
     return Icons.shopping_bag;
   }
   return Icons.category;
