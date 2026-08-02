@@ -2686,7 +2686,7 @@ Color _categoryColor(String name) {
       n.contains('motor')) {
     return _sage;
   }
-  if (n.contains('belanja') || n.contains('shop')) {
+  if (n.contains('belanja') || n.contains('shop') || n.contains('lifestyle')) {
     return const Color(0xffb497e8);
   }
   if (n.contains('sehat') || n.contains('health') || n.contains('kesehatan')) {
@@ -2743,7 +2743,7 @@ IconData _categoryIcon(String name) {
       n.contains('bank')) {
     return Icons.payments;
   }
-  if (n.contains('belanja') || n.contains('shop')) {
+  if (n.contains('belanja') || n.contains('shop') || n.contains('lifestyle')) {
     return Icons.shopping_bag;
   }
   return Icons.category;
