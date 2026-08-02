@@ -76,11 +76,13 @@ class Session {
     required this.token,
     required this.expiresAt,
     required this.username,
+    required this.isGuest,
     this.name,
     this.email,
   });
   final String token, username;
   final DateTime expiresAt;
+  final bool isGuest;
   final String? name, email;
   bool get valid => expiresAt.isAfter(DateTime.now());
   String get displayName => (name?.isNotEmpty ?? false) ? name! : username;
@@ -104,6 +106,7 @@ class SessionStore {
     final session = Session(
       token: j['token'] as String,
       username: j['username'] as String,
+      isGuest: j['isGuest'] as bool? ?? false,
       name: j['name'] as String?,
       email: j['email'] as String?,
       expiresAt: DateTime.parse(j['expiresAt'] as String),
@@ -120,6 +123,7 @@ class SessionStore {
     value: jsonEncode({
       'token': s.token,
       'username': s.username,
+      'isGuest': s.isGuest,
       'name': s.name,
       'email': s.email,
       'expiresAt': s.expiresAt.toIso8601String(),
@@ -157,14 +161,44 @@ class ApiClient {
       data: {'username': username.trim(), 'password': password},
     );
     final j = r.data as Map<String, dynamic>;
-    final user = j['user'] as Map<String, dynamic>?;
+    return _sessionFromResponse(j, fallbackUsername: username.trim());
+  }
+
+  Future<Session> guestLogin() async {
+    final r = await _dio.post('${await _base}auth/guest-login');
+    return _sessionFromResponse(r.data as Map<String, dynamic>);
+  }
+
+  Future<Session> upgradeGuest({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final r = await _dio.post(
+      '${await _base}auth/upgrade-guest',
+      data: {
+        'namaLengkap': name.trim(),
+        'email': email.trim(),
+        'password': password,
+      },
+      options: await _options(),
+    );
+    return _sessionFromResponse(r.data as Map<String, dynamic>);
+  }
+
+  Session _sessionFromResponse(
+    Map<String, dynamic> json, {
+    String? fallbackUsername,
+  }) {
+    final user = json['user'] as Map<String, dynamic>?;
     return Session(
-      token: j['token'] as String,
-      username: username.trim(),
+      token: json['token'] as String,
+      username: json['username'] as String? ?? fallbackUsername ?? 'user',
+      isGuest: json['isGuest'] as bool? ?? false,
       name: user?['name'] as String?,
       email: user?['email'] as String?,
       expiresAt: DateTime.now().add(
-        Duration(seconds: (j['expiresIn'] as num).toInt()),
+        Duration(seconds: (json['expiresIn'] as num).toInt()),
       ),
     );
   }
@@ -314,6 +348,7 @@ class AuthGate extends ConsumerStatefulWidget {
 class _AuthGateState extends ConsumerState<AuthGate> {
   bool onboardingReady = false;
   bool onboardingCompleted = false;
+  bool showAccountOptions = false;
   @override
   void initState() {
     super.initState();
@@ -331,10 +366,17 @@ class _AuthGateState extends ConsumerState<AuthGate> {
     }
   }
 
-  Future<void> _finishOnboarding() async {
+  void _showAccountOptions() => setState(() => showAccountOptions = true);
+
+  Future<void> _completeOnboarding() async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool('onboarding_completed', true);
-    if (mounted) setState(() => onboardingCompleted = true);
+    if (mounted) {
+      setState(() {
+        onboardingCompleted = true;
+        showAccountOptions = false;
+      });
+    }
   }
 
   @override
@@ -351,9 +393,11 @@ class _AuthGateState extends ConsumerState<AuthGate> {
               error: (e, _) => AuthScreen(error: e.toString()),
               data: (session) => session != null
                   ? const Shell()
+                  : showAccountOptions
+                  ? AccountOptionScreen(onComplete: _completeOnboarding)
                   : onboardingCompleted
                   ? const AuthScreen()
-                  : WelcomeFlow(onFinish: _finishOnboarding),
+                  : WelcomeFlow(onFinish: _showAccountOptions),
             );
 }
 
@@ -556,6 +600,120 @@ class _WelcomeFlowState extends State<WelcomeFlow> {
   );
 }
 
+class AccountOptionScreen extends ConsumerStatefulWidget {
+  const AccountOptionScreen({super.key, required this.onComplete});
+  final Future<void> Function() onComplete;
+
+  @override
+  ConsumerState<AccountOptionScreen> createState() =>
+      _AccountOptionScreenState();
+}
+
+class _AccountOptionScreenState extends ConsumerState<AccountOptionScreen> {
+  bool loading = false;
+  String? error;
+
+  Future<void> _tryNow() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final session = await ref.read(apiProvider).guestLogin();
+      await ref.read(sessionStoreProvider).save(session);
+      await widget.onComplete();
+      ref.invalidate(sessionProvider);
+    } catch (_) {
+      if (mounted) {
+        setState(() => error = 'Unable to start Guest Mode. Please try again.');
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _signIn() async {
+    await widget.onComplete();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _BrandMark(),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'How would you like to start?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Explore manual expense tracking instantly, or sign in to unlock every AI feature.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: _muted, height: 1.45),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _panel,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xff3d3930)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.rocket_launch_outlined, color: _gold),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Guest Mode includes the dashboard, history, and manual transactions.',
+                            style: TextStyle(color: _cream, height: 1.35),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 14),
+                    Text(error!, style: const TextStyle(color: _coral)),
+                  ],
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: loading ? null : _tryNow,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _gold,
+                      foregroundColor: _ink,
+                      minimumSize: const Size(0, 54),
+                    ),
+                    child: Text(
+                      loading ? 'Starting Guest Mode...' : 'Try Now  >',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: loading ? null : _signIn,
+                    style: _secondaryButton(),
+                    child: const Text('Sign In / Register'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key, this.error});
   final String? error;
@@ -716,6 +874,8 @@ class _ShellState extends ConsumerState<Shell> {
   int page = 0;
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(sessionProvider).value;
+    final isGuest = session?.isGuest ?? false;
     final pages = [
       const Dashboard(),
       const CaptureScreen(),
@@ -745,17 +905,23 @@ class _ShellState extends ConsumerState<Shell> {
           backgroundColor: Colors.transparent,
           indicatorColor: const Color(0xff51401b),
           selectedIndex: page,
-          onDestinationSelected: (i) => setState(() => page = i),
-          destinations: const [
-            NavigationDestination(
+          onDestinationSelected: (i) {
+            if (i == 1 && isGuest) {
+              _showGuestFeatureGate(context);
+              return;
+            }
+            setState(() => page = i);
+          },
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.grid_view_rounded),
               label: 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.document_scanner_outlined),
+              icon: _GuestAwareScanIcon(locked: isGuest),
               label: 'Scan',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               label: 'Profile',
             ),
@@ -764,6 +930,23 @@ class _ShellState extends ConsumerState<Shell> {
       ),
     );
   }
+
+  Future<void> _showGuestFeatureGate(BuildContext parentContext) =>
+      showModalBottomSheet<void>(
+        context: parentContext,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => _GuestFeatureGateSheet(
+          onUpgrade: () {
+            Navigator.of(sheetContext).pop();
+            showModalBottomSheet<void>(
+              context: parentContext,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const GuestUpgradeSheet(),
+            );
+          },
+        ),
+      );
 }
 
 class Dashboard extends ConsumerWidget {
@@ -811,6 +994,17 @@ class Dashboard extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (user?.isGuest ?? false) ...[
+                const SizedBox(height: 14),
+                _GuestModeBanner(
+                  onUpgrade: () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => const GuestUpgradeSheet(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 22),
               SurfaceCard(
                 tint: _goldDark,
@@ -1372,91 +1566,106 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Scan a receipt',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-              ),
-            ),
-            if (image != null)
-              _RoundButton(
-                icon: Icons.close_rounded,
-                onTap: () => setState(() => image = null),
-              ),
-          ],
+  Widget build(BuildContext context) {
+    final isGuest = ref.watch(sessionProvider).value?.isGuest ?? false;
+    if (isGuest) {
+      return _GuestLockedAiScreen(
+        onUpgrade: () => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => const GuestUpgradeSheet(),
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'Posisikan seluruh struk di dalam area fokus.',
-          style: TextStyle(color: _muted),
-        ),
-        const SizedBox(height: 22),
-        _ScanViewport(image: image, loading: busy),
-        const SizedBox(height: 16),
-        if (busy)
-          const _AiStatus()
-        else
+      );
+    }
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
           Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => pick(ImageSource.camera),
-                  icon: const Icon(Icons.camera_alt_outlined),
-                  label: const Text('Camera'),
-                  style: _secondaryButton(),
+              const Expanded(
+                child: Text(
+                  'Scan a receipt',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => pick(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_outlined),
-                  label: const Text('Gallery'),
-                  style: _secondaryButton(),
+              if (image != null)
+                _RoundButton(
+                  icon: Icons.close_rounded,
+                  onTap: () => setState(() => image = null),
                 ),
-              ),
             ],
           ),
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed: image == null || busy ? null : send,
-          style: FilledButton.styleFrom(
-            backgroundColor: _gold,
-            foregroundColor: _ink,
-            minimumSize: const Size(0, 54),
+          const SizedBox(height: 8),
+          const Text(
+            'Posisikan seluruh struk di dalam area fokus.',
+            style: TextStyle(color: _muted),
           ),
-          child: Text(busy ? 'Analyzing with AI...' : 'Analyze receipt  >'),
-        ),
-        const SizedBox(height: 28),
-        const Text(
-          'Input Teks Notifikasi / Manual',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: manual,
-          maxLines: 3,
-          decoration: _input('Paste notification or transaction text here...'),
-        ),
-        const SizedBox(height: 8),
-        FilledButton(
-          onPressed: notification,
-          style: FilledButton.styleFrom(
-            backgroundColor: _gold,
-            foregroundColor: _ink,
-            minimumSize: const Size(0, 52),
+          const SizedBox(height: 22),
+          _ScanViewport(image: image, loading: busy),
+          const SizedBox(height: 16),
+          if (busy)
+            const _AiStatus()
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => pick(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text('Camera'),
+                    style: _secondaryButton(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => pick(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_outlined),
+                    label: const Text('Gallery'),
+                    style: _secondaryButton(),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: image == null || busy ? null : send,
+            style: FilledButton.styleFrom(
+              backgroundColor: _gold,
+              foregroundColor: _ink,
+              minimumSize: const Size(0, 54),
+            ),
+            child: Text(busy ? 'Analyzing with AI...' : 'Analyze receipt  >'),
           ),
-          child: const Text('Proses Transaksi >'),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 28),
+          const Text(
+            'Input Teks Notifikasi / Manual',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: manual,
+            maxLines: 3,
+            decoration: _input(
+              'Paste notification or transaction text here...',
+            ),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: notification,
+            style: FilledButton.styleFrom(
+              backgroundColor: _gold,
+              foregroundColor: _ink,
+              minimumSize: const Size(0, 52),
+            ),
+            child: const Text('Proses Transaksi >'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class ProfileScreen extends ConsumerWidget {
@@ -1498,12 +1707,59 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  s?.email ?? 'email belum tersedia',
+                  s?.isGuest == true
+                      ? 'Guest Mode'
+                      : s?.email ?? 'email belum tersedia',
                   style: const TextStyle(color: _muted),
                 ),
               ],
             ),
           ),
+          if (s?.isGuest ?? false) ...[
+            const SizedBox(height: 16),
+            SurfaceCard(
+              tint: _goldDark,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.lock_open_rounded, color: _cream),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Unlock the full Broke.AI experience',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Create your free account to keep your manual history and unlock AI scanning.',
+                    style: TextStyle(color: _cream, height: 1.4),
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton(
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => const GuestUpgradeSheet(),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _gold,
+                      foregroundColor: _ink,
+                    ),
+                    child: const Text('Create free account  >'),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           SurfaceCard(
             tint: _goldDark,
@@ -1591,6 +1847,298 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class GuestUpgradeSheet extends ConsumerStatefulWidget {
+  const GuestUpgradeSheet({super.key});
+
+  @override
+  ConsumerState<GuestUpgradeSheet> createState() => _GuestUpgradeSheetState();
+}
+
+class _GuestUpgradeSheetState extends ConsumerState<GuestUpgradeSheet> {
+  final name = TextEditingController();
+  final email = TextEditingController();
+  final password = TextEditingController();
+  final confirmPassword = TextEditingController();
+  bool loading = false;
+  String? error;
+
+  @override
+  void dispose() {
+    name.dispose();
+    email.dispose();
+    password.dispose();
+    confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (name.text.trim().isEmpty ||
+        email.text.trim().isEmpty ||
+        password.text.isEmpty) {
+      setState(() => error = 'Complete all account fields.');
+      return;
+    }
+    if (password.text != confirmPassword.text) {
+      setState(() => error = 'Passwords do not match.');
+      return;
+    }
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final session = await ref
+          .read(apiProvider)
+          .upgradeGuest(
+            name: name.text,
+            email: email.text,
+            password: password.text,
+          );
+      await ref.read(sessionStoreProvider).save(session);
+      ref.invalidate(sessionProvider);
+      ref.invalidate(dashboardProvider);
+      if (mounted) Navigator.of(context).pop();
+    } on DioException catch (exception) {
+      if (mounted) {
+        setState(
+          () => error = _apiErrorMessage(
+            exception,
+            fallback: 'Unable to create your account.',
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => error = 'Unable to create your account.');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      12,
+      12,
+      12,
+      MediaQuery.viewInsetsOf(context).bottom + 12,
+    ),
+    child: SingleChildScrollView(
+      child: SurfaceCard(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Create your free account',
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const Text(
+              'Your guest transactions stay attached to this account.',
+              style: TextStyle(color: _muted, height: 1.4),
+            ),
+            const SizedBox(height: 18),
+            TextField(controller: name, decoration: _input('Full name')),
+            const SizedBox(height: 10),
+            TextField(
+              controller: email,
+              keyboardType: TextInputType.emailAddress,
+              decoration: _input('Email'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: password,
+              obscureText: true,
+              decoration: _input('Password'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: confirmPassword,
+              obscureText: true,
+              decoration: _input('Confirm password'),
+            ),
+            if (error != null) ...[
+              const SizedBox(height: 12),
+              Text(error!, style: const TextStyle(color: _coral)),
+            ],
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: loading ? null : submit,
+              style: FilledButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: _ink,
+                minimumSize: const Size(0, 52),
+              ),
+              child: Text(
+                loading ? 'Creating account...' : 'Create account  >',
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _GuestFeatureGateSheet extends StatelessWidget {
+  const _GuestFeatureGateSheet({required this.onUpgrade});
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: SurfaceCard(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _HeroIcon(icon: Icons.lock_rounded, size: 72),
+            const SizedBox(height: 18),
+            const Text(
+              'Unlock AI features',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Want to unlock AI Receipt Scanning & Auto-Parsing? Sign up for a free account to continue!',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _muted, height: 1.45),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: onUpgrade,
+              style: FilledButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: _ink,
+                minimumSize: const Size(0, 52),
+              ),
+              child: const Text('Create free account  >'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Maybe later', style: TextStyle(color: _cream)),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _GuestLockedAiScreen extends StatelessWidget {
+  const _GuestLockedAiScreen({required this.onUpgrade});
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          children: [
+            const _HeroIcon(icon: Icons.lock_rounded, size: 100),
+            const SizedBox(height: 24),
+            const Text(
+              'AI tools are locked in Guest Mode',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Create a free account to scan receipts and automatically parse payment notifications.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _muted, height: 1.45),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onUpgrade,
+              style: FilledButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: _ink,
+                minimumSize: const Size(220, 52),
+              ),
+              icon: const Icon(Icons.lock_open_rounded),
+              label: const Text('Unlock AI features'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _GuestModeBanner extends StatelessWidget {
+  const _GuestModeBanner({required this.onUpgrade});
+  final VoidCallback onUpgrade;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onUpgrade,
+    borderRadius: BorderRadius.circular(18),
+    child: Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xff322b1c),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _goldDark),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.person_outline_rounded, color: _gold),
+          SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Guest Mode',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Data is saved temporarily · Tap to create an account',
+                  style: TextStyle(color: _muted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_rounded, color: _gold, size: 18),
+        ],
+      ),
+    ),
+  );
+}
+
+class _GuestAwareScanIcon extends StatelessWidget {
+  const _GuestAwareScanIcon({required this.locked});
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      const Icon(Icons.document_scanner_outlined),
+      if (locked)
+        const Positioned(
+          right: -7,
+          top: -7,
+          child: Icon(Icons.lock_rounded, size: 13, color: _gold),
+        ),
+    ],
+  );
 }
 
 class SurfaceCard extends StatelessWidget {
@@ -2091,6 +2639,17 @@ class _SettingTile extends StatelessWidget {
       size: 18,
     ),
   );
+}
+
+String _apiErrorMessage(DioException exception, {required String fallback}) {
+  final data = exception.response?.data;
+  if (data is Map<String, dynamic>) {
+    for (final key in ['detail', 'message', 'error']) {
+      final value = data[key];
+      if (value is String && value.trim().isNotEmpty) return value;
+    }
+  }
+  return fallback;
 }
 
 InputDecoration _input(String label) => InputDecoration(
