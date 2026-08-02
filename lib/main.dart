@@ -102,7 +102,15 @@ class Session {
 class SessionStore {
   static const _key = 'session';
   final _storage = const FlutterSecureStorage();
+  Session? _activeGuestSession;
+
   Future<Session?> read() async {
+    final guestSession = _activeGuestSession;
+    if (guestSession != null) {
+      if (guestSession.valid) return guestSession;
+      _activeGuestSession = null;
+    }
+
     try {
       final raw = await _storage.read(key: _key);
       if (raw == null) return null;
@@ -115,7 +123,9 @@ class SessionStore {
         email: j['email'] as String?,
         expiresAt: DateTime.parse(j['expiresAt'] as String),
       );
-      if (session.valid) return session;
+      // Guest access must always begin with an explicit Try Now action.
+      // Discard legacy persisted guest sessions from older app versions.
+      if (!session.isGuest && session.valid) return session;
     } catch (_) {
       // Malformed or legacy session data must never block the entry screen.
     }
@@ -127,18 +137,36 @@ class SessionStore {
     return null;
   }
 
-  Future<void> save(Session s) => _storage.write(
-    key: _key,
-    value: jsonEncode({
-      'token': s.token,
-      'username': s.username,
-      'isGuest': s.isGuest,
-      'name': s.name,
-      'email': s.email,
-      'expiresAt': s.expiresAt.toIso8601String(),
-    }),
-  );
-  Future<void> clear() => _storage.delete(key: _key);
+  Future<void> save(Session session) async {
+    if (session.isGuest) {
+      _activeGuestSession = session;
+      // Do not restore a guest account after an app restart or reinstall.
+      try {
+        await _storage.delete(key: _key);
+      } catch (_) {
+        // The in-memory guest session remains usable for this app process.
+      }
+      return;
+    }
+
+    _activeGuestSession = null;
+    await _storage.write(
+      key: _key,
+      value: jsonEncode({
+        'token': session.token,
+        'username': session.username,
+        'isGuest': false,
+        'name': session.name,
+        'email': session.email,
+        'expiresAt': session.expiresAt.toIso8601String(),
+      }),
+    );
+  }
+
+  Future<void> clear() async {
+    _activeGuestSession = null;
+    await _storage.delete(key: _key);
+  }
 }
 
 class ApiClient {
