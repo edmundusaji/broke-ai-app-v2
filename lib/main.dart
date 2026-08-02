@@ -230,7 +230,7 @@ class ApiClient {
     final r = await _dio.post(
       '${await _base}expense/manual',
       data: {
-        'date': date.toIso8601String(),
+        'date': DateFormat('yyyy-MM-dd').format(date),
         'amount': amount,
         'category': category.trim(),
         'merchant': merchant.trim(),
@@ -250,7 +250,7 @@ class ApiClient {
     await _dio.put(
       '${await _base}expense/$id',
       data: {
-        'date': date.toIso8601String(),
+        'date': DateFormat('yyyy-MM-dd').format(date),
         'amount': amount,
         'category': category.trim(),
         'merchant': merchant.trim(),
