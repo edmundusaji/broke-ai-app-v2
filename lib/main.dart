@@ -220,6 +220,47 @@ class ApiClient {
     );
     return Transaction.fromJson(r.data as Map<String, dynamic>);
   }
+
+  Future<Transaction> createManualTransaction({
+    required DateTime date,
+    required double amount,
+    required String category,
+    required String merchant,
+  }) async {
+    final r = await _dio.post(
+      '${await _base}expense/manual',
+      data: {
+        'date': date.toIso8601String(),
+        'amount': amount,
+        'category': category.trim(),
+        'merchant': merchant.trim(),
+      },
+      options: await _options(),
+    );
+    return Transaction.fromJson(r.data as Map<String, dynamic>);
+  }
+
+  Future<void> updateTransaction({
+    required int id,
+    required DateTime date,
+    required double amount,
+    required String category,
+    required String merchant,
+  }) async {
+    await _dio.put(
+      '${await _base}expense/$id',
+      data: {
+        'date': date.toIso8601String(),
+        'amount': amount,
+        'category': category.trim(),
+        'merchant': merchant.trim(),
+      },
+      options: await _options(),
+    );
+  }
+
+  Future<void> deleteTransaction(int id) async =>
+      _dio.delete('${await _base}expense/$id', options: await _options());
 }
 
 final sessionStoreProvider = Provider((_) => SessionStore());
@@ -271,21 +312,49 @@ class AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
-  bool showSignIn = false;
+  bool onboardingReady = false;
+  bool onboardingCompleted = false;
   @override
-  Widget build(BuildContext context) => ref
-      .watch(sessionProvider)
-      .when(
-        loading: () => const Scaffold(
+  void initState() {
+    super.initState();
+    _loadOnboardingState();
+  }
+
+  Future<void> _loadOnboardingState() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        onboardingCompleted =
+            preferences.getBool('onboarding_completed') ?? false;
+        onboardingReady = true;
+      });
+    }
+  }
+
+  Future<void> _finishOnboarding() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool('onboarding_completed', true);
+    if (mounted) setState(() => onboardingCompleted = true);
+  }
+
+  @override
+  Widget build(BuildContext context) => !onboardingReady
+      ? const Scaffold(
           body: Center(child: CircularProgressIndicator(color: _gold)),
-        ),
-        error: (e, _) => AuthScreen(error: e.toString()),
-        data: (session) => session != null
-            ? const Shell()
-            : showSignIn
-            ? const AuthScreen()
-            : WelcomeFlow(onFinish: () => setState(() => showSignIn = true)),
-      );
+        )
+      : ref
+            .watch(sessionProvider)
+            .when(
+              loading: () => const Scaffold(
+                body: Center(child: CircularProgressIndicator(color: _gold)),
+              ),
+              error: (e, _) => AuthScreen(error: e.toString()),
+              data: (session) => session != null
+                  ? const Shell()
+                  : onboardingCompleted
+                  ? const AuthScreen()
+                  : WelcomeFlow(onFinish: _finishOnboarding),
+            );
 }
 
 class WelcomeFlow extends StatefulWidget {
@@ -654,6 +723,19 @@ class _ShellState extends ConsumerState<Shell> {
     ];
     return Scaffold(
       body: pages[page],
+      floatingActionButton: page == 0
+          ? FloatingActionButton(
+              backgroundColor: _gold,
+              foregroundColor: _ink,
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const ManualTransactionSheet(),
+              ),
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: _charcoal,
@@ -853,9 +935,28 @@ class Dashboard extends ConsumerWidget {
                       ),
               ),
               const SizedBox(height: 22),
-              const Text(
-                'Aktivitas terbaru',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Aktivitas terbaru',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MonthlyHistoryScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.history_rounded, size: 18),
+                    label: const Text('History'),
+                    style: TextButton.styleFrom(foregroundColor: _gold),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               SurfaceCard(
@@ -881,6 +982,320 @@ class Dashboard extends ConsumerWidget {
       ),
     );
   }
+}
+
+class MonthlyHistoryScreen extends ConsumerWidget {
+  const MonthlyHistoryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final date = ref.watch(selectedMonthProvider);
+    final dashboard = ref.watch(dashboardProvider);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Monthly history'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded),
+            onPressed: () => ref.read(selectedMonthProvider.notifier).state =
+                DateTime(date.year, date.month - 1),
+          ),
+          Center(
+            child: Text(
+              DateFormat('MMM y', 'id_ID').format(date),
+              style: const TextStyle(color: _gold, fontWeight: FontWeight.bold),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right_rounded),
+            onPressed: () => ref.read(selectedMonthProvider.notifier).state =
+                DateTime(date.year, date.month + 1),
+          ),
+        ],
+      ),
+      body: dashboard.when(
+        loading: () =>
+            const Center(child: CircularProgressIndicator(color: _gold)),
+        error: (error, _) => _DashboardError(error: error.toString()),
+        data: (data) => data.history.isEmpty
+            ? const Center(
+                child: Text(
+                  'No transactions this month.',
+                  style: TextStyle(color: _muted),
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                itemCount: data.history.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (_, index) => SurfaceCard(
+                  padding: EdgeInsets.zero,
+                  child: _HistoryTransactionTile(
+                    transaction: data.history[index],
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _HistoryTransactionTile extends ConsumerWidget {
+  const _HistoryTransactionTile({required this.transaction});
+  final Transaction transaction;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => ListTile(
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+    leading: Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: _categoryColor(transaction.kategori ?? ''),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Icon(_categoryIcon(transaction.kategori ?? ''), color: _ink),
+    ),
+    title: Text(
+      transaction.kategori ?? 'Other',
+      style: const TextStyle(fontWeight: FontWeight.w700),
+    ),
+    subtitle: Text(
+      '${transaction.merchant ?? transaction.tipeInput ?? '-'} • ${_shortDate(transaction.tanggal)}',
+      style: const TextStyle(color: _muted),
+    ),
+    trailing: PopupMenuButton<String>(
+      icon: const Icon(Icons.more_horiz_rounded, color: _cream),
+      onSelected: (value) async {
+        if (transaction.id == null) return;
+        if (value == 'edit') {
+          await showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => ManualTransactionSheet(transaction: transaction),
+          );
+        } else {
+          final shouldDelete = await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Delete transaction?'),
+              content: const Text(
+                'This transaction will be permanently removed.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xffff5252),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ],
+            ),
+          );
+          if (shouldDelete == true && context.mounted) {
+            try {
+              await ref.read(apiProvider).deleteTransaction(transaction.id!);
+              ref.invalidate(dashboardProvider);
+            } catch (_) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Unable to delete transaction.'),
+                  ),
+                );
+              }
+            }
+          }
+        }
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: 'edit',
+          child: ListTile(
+            leading: Icon(Icons.edit_outlined),
+            title: Text('Edit'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          child: ListTile(
+            leading: Icon(Icons.delete_outline, color: Color(0xffff5252)),
+            title: Text('Delete', style: TextStyle(color: Color(0xffff5252))),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class ManualTransactionSheet extends ConsumerStatefulWidget {
+  const ManualTransactionSheet({super.key, this.transaction});
+  final Transaction? transaction;
+  @override
+  ConsumerState<ManualTransactionSheet> createState() =>
+      _ManualTransactionSheetState();
+}
+
+class _ManualTransactionSheetState
+    extends ConsumerState<ManualTransactionSheet> {
+  late final TextEditingController amount;
+  late final TextEditingController category;
+  late final TextEditingController merchant;
+  late DateTime date;
+  bool saving = false;
+  bool get editing => widget.transaction?.id != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final transaction = widget.transaction;
+    amount = TextEditingController(text: transaction?.jumlah?.toString() ?? '');
+    category = TextEditingController(text: transaction?.kategori ?? '');
+    merchant = TextEditingController(text: transaction?.merchant ?? '');
+    date = DateTime.tryParse(transaction?.tanggal ?? '') ?? DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    amount.dispose();
+    category.dispose();
+    merchant.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    final parsedAmount = double.tryParse(amount.text.replaceAll(',', '.'));
+    if (parsedAmount == null ||
+        parsedAmount <= 0 ||
+        category.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid amount and category.')),
+      );
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      if (editing) {
+        await ref
+            .read(apiProvider)
+            .updateTransaction(
+              id: widget.transaction!.id!,
+              date: date,
+              amount: parsedAmount,
+              category: category.text,
+              merchant: merchant.text,
+            );
+      } else {
+        await ref
+            .read(apiProvider)
+            .createManualTransaction(
+              date: date,
+              amount: parsedAmount,
+              category: category.text,
+              merchant: merchant.text,
+            );
+      }
+      ref.invalidate(dashboardProvider);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to save transaction.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      12,
+      12,
+      12,
+      MediaQuery.viewInsetsOf(context).bottom + 12,
+    ),
+    child: SurfaceCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  editing ? 'Edit transaction' : 'Manual transaction',
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final picked = await showDatePicker(
+                context: context,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2100),
+                initialDate: date,
+              );
+              if (picked != null) setState(() => date = picked);
+            },
+            icon: const Icon(Icons.calendar_today_outlined),
+            label: Text(DateFormat.yMMMMd('id_ID').format(date)),
+            style: _secondaryButton(),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: amount,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: _input('Amount'),
+          ),
+          const SizedBox(height: 10),
+          TextField(controller: category, decoration: _input('Category')),
+          const SizedBox(height: 10),
+          TextField(controller: merchant, decoration: _input('Merchant')),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: saving ? null : submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: _gold,
+              foregroundColor: _ink,
+              minimumSize: const Size(0, 52),
+            ),
+            child: Text(
+              saving
+                  ? 'Saving...'
+                  : editing
+                  ? 'Save changes'
+                  : 'Add transaction',
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class CaptureScreen extends ConsumerStatefulWidget {
@@ -969,10 +1384,11 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
               ),
             ),
-            _RoundButton(
-              icon: Icons.close_rounded,
-              onTap: () => setState(() => image = null),
-            ),
+            if (image != null)
+              _RoundButton(
+                icon: Icons.close_rounded,
+                onTap: () => setState(() => image = null),
+              ),
           ],
         ),
         const SizedBox(height: 8),
