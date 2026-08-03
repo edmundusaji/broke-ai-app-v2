@@ -79,12 +79,14 @@ class Session {
     required this.expiresAt,
     required this.username,
     required this.isGuest,
+    this.remainingAiTrials = 0,
     this.name,
     this.email,
   });
   final String token, username;
   final DateTime expiresAt;
   final bool isGuest;
+  final int remainingAiTrials;
   final String? name, email;
   bool get valid =>
       token.trim().isNotEmpty && expiresAt.isAfter(DateTime.now());
@@ -119,6 +121,7 @@ class SessionStore {
         token: j['token'] as String,
         username: j['username'] as String,
         isGuest: j['isGuest'] as bool? ?? false,
+        remainingAiTrials: (j['remaining_ai_trials'] as num?)?.toInt() ?? 0,
         name: j['name'] as String?,
         email: j['email'] as String?,
         expiresAt: DateTime.parse(j['expiresAt'] as String),
@@ -156,6 +159,7 @@ class SessionStore {
         'token': session.token,
         'username': session.username,
         'isGuest': false,
+        'remaining_ai_trials': session.remainingAiTrials,
         'name': session.name,
         'email': session.email,
         'expiresAt': session.expiresAt.toIso8601String(),
@@ -166,6 +170,20 @@ class SessionStore {
   Future<void> clear() async {
     _activeGuestSession = null;
     await _storage.delete(key: _key);
+  }
+
+  void updateActiveGuestTrials(int remainingTrials) {
+    final session = _activeGuestSession;
+    if (session == null || !session.isGuest) return;
+    _activeGuestSession = Session(
+      token: session.token,
+      expiresAt: session.expiresAt,
+      username: session.username,
+      isGuest: true,
+      remainingAiTrials: remainingTrials.clamp(0, 2),
+      name: session.name,
+      email: session.email,
+    );
   }
 }
 
@@ -217,6 +235,7 @@ class ApiClient {
       token: json['token'] as String,
       username: json['username'] as String? ?? fallbackUsername ?? 'guest',
       isGuest: json['isGuest'] as bool? ?? false,
+      remainingAiTrials: (json['remaining_ai_trials'] as num?)?.toInt() ?? 0,
       name: user?['name'] as String?,
       email: user?['email'] as String?,
       expiresAt: DateTime.now().add(
@@ -260,21 +279,42 @@ class ApiClient {
   }
 
   Future<Transaction> notification(String text) async {
-    final r = await _dio.post(
-      '${await _base}expense/notification',
-      data: {'text': text.trim()},
-      options: await _options(),
-    );
-    return Transaction.fromJson(r.data as Map<String, dynamic>);
+    try {
+      final r = await _dio.post(
+        '${await _base}expense/notification',
+        data: {'text': text.trim()},
+        options: await _options(),
+      );
+      return Transaction.fromJson(r.data as Map<String, dynamic>);
+    } on DioException catch (error) {
+      _throwIfGuestAiLimit(error);
+      rethrow;
+    }
   }
 
   Future<Transaction> receipt(File file) async {
-    final r = await _dio.post(
-      '${await _base}expense/receipt',
-      data: FormData.fromMap({'file': await MultipartFile.fromFile(file.path)}),
+    try {
+      final r = await _dio.post(
+        '${await _base}expense/receipt',
+        data: FormData.fromMap({
+          'file': await MultipartFile.fromFile(file.path),
+        }),
+        options: await _options(),
+      );
+      return Transaction.fromJson(r.data as Map<String, dynamic>);
+    } on DioException catch (error) {
+      _throwIfGuestAiLimit(error);
+      rethrow;
+    }
+  }
+
+  Future<int> remainingAiTrials() async {
+    final response = await _dio.get(
+      '${await _base}auth/me',
       options: await _options(),
     );
-    return Transaction.fromJson(r.data as Map<String, dynamic>);
+    final json = response.data as Map<String, dynamic>;
+    return (json['remaining_ai_trials'] as num?)?.toInt() ?? 0;
   }
 
   Future<Transaction> createManualTransaction({
@@ -296,6 +336,20 @@ class ApiClient {
     );
     return Transaction.fromJson(r.data as Map<String, dynamic>);
   }
+
+  void _throwIfGuestAiLimit(DioException error) {
+    final data = error.response?.data;
+    if (data is Map && data['code'] == GuestAiTrialLimitException.code) {
+      throw GuestAiTrialLimitException(message: data['message'] as String?);
+    }
+  }
+}
+
+class GuestAiTrialLimitException implements Exception {
+  const GuestAiTrialLimitException({this.message});
+
+  static const code = 'GUEST_AI_LIMIT_REACHED';
+  final String? message;
 }
 
 final sessionStoreProvider = Provider((_) => SessionStore());
@@ -306,6 +360,10 @@ final sessionProvider = FutureProvider<Session?>(
   (ref) => ref.watch(sessionStoreProvider).read(),
 );
 final showAuthProvider = StateProvider<bool>((_) => false);
+final remainingAiTrialsProvider = StateProvider<int?>((ref) {
+  final session = ref.watch(sessionProvider).value;
+  return session?.isGuest == true ? session!.remainingAiTrials : null;
+});
 final selectedMonthProvider = StateProvider<DateTime>(
   (_) => DateTime(DateTime.now().year, DateTime.now().month),
 );
@@ -1428,15 +1486,22 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
   Future<void> send() async {
     if (image == null) return;
+    if (await _blockIfGuestTrialsExhausted()) return;
     setState(() => busy = true);
     try {
       final result = await ref.read(apiProvider).receipt(File(image!.path));
+      await _consumeAndRefreshGuestTrial();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Tercatat: ${_money(result.jumlah ?? 0)}')),
         );
         setState(() => image = null);
         ref.invalidate(dashboardProvider);
+      }
+    } on GuestAiTrialLimitException {
+      if (mounted) {
+        _setRemainingGuestTrials(0);
+        await _showGuestAiLimit();
       }
     } catch (_) {
       await _queue('receipt', image!.path);
@@ -1452,13 +1517,83 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
 
   Future<void> notification() async {
     if (manual.text.trim().isEmpty) return;
+    if (await _blockIfGuestTrialsExhausted()) return;
     try {
       await ref.read(apiProvider).notification(manual.text);
+      await _consumeAndRefreshGuestTrial();
       manual.clear();
       ref.invalidate(dashboardProvider);
+    } on GuestAiTrialLimitException {
+      if (mounted) {
+        _setRemainingGuestTrials(0);
+        await _showGuestAiLimit();
+      }
     } catch (_) {
       await _queue('notification', manual.text);
     }
+  }
+
+  Future<bool> _blockIfGuestTrialsExhausted() async {
+    final session = ref.read(sessionProvider).value;
+    final remaining = ref.read(remainingAiTrialsProvider);
+    if (session?.isGuest == true && remaining == 0) {
+      await _showGuestAiLimit();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _consumeAndRefreshGuestTrial() async {
+    if (ref.read(sessionProvider).value?.isGuest != true) return;
+
+    final current = ref.read(remainingAiTrialsProvider);
+    if (current != null) {
+      _setRemainingGuestTrials(current - 1);
+    }
+
+    try {
+      final authoritativeCount = await ref
+          .read(apiProvider)
+          .remainingAiTrials();
+      if (mounted) {
+        _setRemainingGuestTrials(authoritativeCount);
+      }
+    } catch (_) {
+      // Keep the optimistic local count until the next successful refresh.
+    }
+  }
+
+  void _setRemainingGuestTrials(int remainingTrials) {
+    final boundedCount = remainingTrials.clamp(0, 2);
+    ref.read(remainingAiTrialsProvider.notifier).state = boundedCount;
+    ref.read(sessionStoreProvider).updateActiveGuestTrials(boundedCount);
+  }
+
+  Future<void> _showGuestAiLimit() async {
+    final action = await showModalBottomSheet<_GuestAiLimitAction>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _GuestAiLimitSheet(),
+    );
+    if (!mounted || action == null) return;
+
+    if (action == _GuestAiLimitAction.authenticate) {
+      try {
+        await ref.read(sessionStoreProvider).clear();
+      } finally {
+        ref.read(showAuthProvider.notifier).state = true;
+        ref.invalidate(sessionProvider);
+      }
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const ManualTransactionSheet(),
+    );
   }
 
   Future<void> _queue(String type, String payload) async {
@@ -1475,88 +1610,209 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Scan a receipt',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-              ),
-            ),
-            _RoundButton(
-              icon: Icons.close_rounded,
-              onTap: () => setState(() => image = null),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Posisikan seluruh struk di dalam area fokus.',
-          style: TextStyle(color: _muted),
-        ),
-        const SizedBox(height: 22),
-        _ScanViewport(image: image, loading: busy),
-        const SizedBox(height: 16),
-        if (busy)
-          const _AiStatus()
-        else
+  Widget build(BuildContext context) {
+    final isGuest = ref.watch(sessionProvider).value?.isGuest == true;
+    final remainingTrials = ref.watch(remainingAiTrialsProvider);
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
           Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => pick(ImageSource.camera),
-                  icon: const Icon(Icons.camera_alt_outlined),
-                  label: const Text('Camera'),
-                  style: _secondaryButton(),
+              const Expanded(
+                child: Text(
+                  'Scan a receipt',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => pick(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_outlined),
-                  label: const Text('Gallery'),
-                  style: _secondaryButton(),
-                ),
+              _RoundButton(
+                icon: Icons.close_rounded,
+                onTap: () => setState(() => image = null),
               ),
             ],
           ),
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed: image == null || busy ? null : send,
-          style: FilledButton.styleFrom(
-            backgroundColor: _gold,
-            foregroundColor: _ink,
-            minimumSize: const Size(0, 54),
+          const SizedBox(height: 8),
+          const Text(
+            'Posisikan seluruh struk di dalam area fokus.',
+            style: TextStyle(color: _muted),
           ),
-          child: Text(busy ? 'Analyzing with AI...' : 'Analyze receipt  >'),
-        ),
-        const SizedBox(height: 28),
-        const Text(
-          'Input Teks Notifikasi / Manual',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: manual,
-          maxLines: 3,
-          decoration: _input('Paste notification or transaction text here...'),
-        ),
-        const SizedBox(height: 8),
-        FilledButton(
-          onPressed: notification,
-          style: FilledButton.styleFrom(
-            backgroundColor: _gold,
-            foregroundColor: _ink,
-            minimumSize: const Size(0, 52),
+          if (isGuest) ...[
+            const SizedBox(height: 12),
+            _AiTrialBadge(remaining: remainingTrials ?? 0),
+          ],
+          const SizedBox(height: 22),
+          _ScanViewport(image: image, loading: busy),
+          const SizedBox(height: 16),
+          if (busy)
+            const _AiStatus()
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => pick(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text('Camera'),
+                    style: _secondaryButton(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => pick(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_outlined),
+                    label: const Text('Gallery'),
+                    style: _secondaryButton(),
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: image == null || busy ? null : send,
+            style: FilledButton.styleFrom(
+              backgroundColor: _gold,
+              foregroundColor: _ink,
+              minimumSize: const Size(0, 54),
+            ),
+            child: Text(busy ? 'Analyzing with AI...' : 'Analyze receipt  >'),
           ),
-          child: const Text('Proses Transaksi >'),
+          const SizedBox(height: 28),
+          const Text(
+            'Input Teks Notifikasi / Manual',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: manual,
+            maxLines: 3,
+            decoration: _input(
+              'Paste notification or transaction text here...',
+            ),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: notification,
+            style: FilledButton.styleFrom(
+              backgroundColor: _gold,
+              foregroundColor: _ink,
+              minimumSize: const Size(0, 52),
+            ),
+            child: const Text('Proses Transaksi >'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _GuestAiLimitAction { authenticate, manual }
+
+class _AiTrialBadge extends StatelessWidget {
+  const _AiTrialBadge({required this.remaining});
+
+  final int remaining;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = remaining.clamp(0, 2);
+    final exhausted = count == 0;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: exhausted ? const Color(0xff3b211f) : const Color(0xff493b1b),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: exhausted ? _coral : _gold),
         ),
-      ],
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              exhausted ? Icons.lock_outline_rounded : Icons.auto_awesome,
+              color: exhausted ? _coral : _gold,
+              size: 17,
+            ),
+            const SizedBox(width: 7),
+            Text(
+              exhausted
+                  ? 'No Free Scans Left'
+                  : '$count Free Scan${count == 1 ? '' : 's'} Left',
+              style: TextStyle(
+                color: exhausted ? _coral : _cream,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GuestAiLimitSheet extends StatelessWidget {
+  const _GuestAiLimitSheet();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      12,
+      12,
+      12,
+      MediaQuery.viewInsetsOf(context).bottom + 12,
+    ),
+    child: SurfaceCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: 'Cancel',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ),
+          const _HeroIcon(icon: Icons.rocket_launch_rounded, size: 82),
+          const SizedBox(height: 18),
+          const Text(
+            'Unlock Unlimited AI Scans!',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 9),
+          const Text(
+            "You've used your 2 free guest trials. Create a free account or sign in to keep scanning receipts automatically.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _muted, height: 1.45),
+          ),
+          const SizedBox(height: 22),
+          FilledButton.icon(
+            onPressed: () =>
+                Navigator.pop(context, _GuestAiLimitAction.authenticate),
+            style: FilledButton.styleFrom(
+              backgroundColor: _gold,
+              foregroundColor: _ink,
+              minimumSize: const Size(0, 54),
+            ),
+            icon: const Icon(Icons.login_rounded),
+            label: const Text('Sign In / Register'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(context, _GuestAiLimitAction.manual),
+            style: _secondaryButton(),
+            icon: const Icon(Icons.edit_note_rounded),
+            label: const Text('Use Manual Input'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: _muted)),
+          ),
+        ],
+      ),
     ),
   );
 }

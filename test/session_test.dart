@@ -8,11 +8,13 @@ void main() {
       expiresAt: DateTime.now().add(const Duration(hours: 1)),
       username: 'guest_123',
       isGuest: true,
+      remainingAiTrials: 2,
       name: 'Guest User',
     );
 
     expect(session.valid, isTrue);
     expect(session.isGuest, isTrue);
+    expect(session.remainingAiTrials, 2);
     expect(session.displayName, 'Guest User');
     expect(session.initials, 'GU');
   });
