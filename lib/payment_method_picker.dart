@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'widgets/merchant_logo.dart';
+import 'widgets/payment_method_logo.dart';
 
 const _ink = Color(0xff111111);
 const _panel = Color(0xff292720);
@@ -422,10 +422,6 @@ class _OptionPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
     message: label,
-    child: MerchantLogo(
-      merchant: label,
-      category: 'Payment',
-      size: large ? 32 : 28,
-    ),
+    child: PaymentMethodLogo(paymentMethod: label, size: large ? 32 : 28),
   );
 }

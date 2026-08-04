@@ -3,23 +3,21 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../utils/transaction_visuals.dart';
 
-class MerchantLogo extends StatelessWidget {
-  const MerchantLogo({
+class PaymentMethodLogo extends StatelessWidget {
+  const PaymentMethodLogo({
     super.key,
-    required this.merchant,
-    required this.category,
+    required this.paymentMethod,
     this.size = 44,
   });
 
-  final String? merchant;
-  final String category;
+  final String? paymentMethod;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final asset = merchantLogoAsset(merchant);
+    final asset = paymentMethodLogoAsset(paymentMethod);
     final fallback = Icon(
-      categoryIcon(category),
+      Icons.account_balance_wallet_rounded,
       color: AppColors.ink,
       size: size * .48,
     );
@@ -28,7 +26,7 @@ class MerchantLogo extends StatelessWidget {
       height: size,
       padding: EdgeInsets.all(asset == null ? 0 : size * .12),
       decoration: BoxDecoration(
-        color: asset == null ? categoryColor(category) : Colors.white,
+        color: asset == null ? AppColors.gold : Colors.white,
         borderRadius: BorderRadius.circular(size * .3),
       ),
       alignment: Alignment.center,

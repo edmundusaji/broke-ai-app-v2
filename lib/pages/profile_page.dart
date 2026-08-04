@@ -121,16 +121,24 @@ class ProfilePage extends ConsumerWidget {
                   icon: Icons.bug_report_outlined,
                   label: 'Report a bug',
                 ),
-                _SettingTile(
-                  icon: Icons.logout_rounded,
-                  label: 'Log out',
-                  danger: true,
-                  onTap: () async {
-                    ref.read(showAuthProvider.notifier).state = false;
-                    await ref.read(sessionStoreProvider).clear();
-                    ref.invalidate(sessionProvider);
-                  },
-                ),
+                if (session?.isGuest == true)
+                  _SettingTile(
+                    icon: Icons.login_rounded,
+                    label: 'Login / Register',
+                    onTap: () =>
+                        ref.read(showAuthProvider.notifier).state = true,
+                  )
+                else
+                  _SettingTile(
+                    icon: Icons.logout_rounded,
+                    label: 'Log out',
+                    danger: true,
+                    onTap: () async {
+                      ref.read(showAuthProvider.notifier).state = false;
+                      await ref.read(sessionStoreProvider).clear();
+                      ref.invalidate(sessionProvider);
+                    },
+                  ),
               ],
             ),
           ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_theme.dart';
-import '../models/transaction.dart';
 
 Color categoryColor(String name) {
   final value = name.toLowerCase();
@@ -63,8 +62,8 @@ IconData categoryIcon(String name) {
   return Icons.category;
 }
 
-String? merchantLogoAsset(String? merchant) {
-  final value = merchant?.toLowerCase() ?? '';
+String? paymentMethodLogoAsset(String? paymentMethod) {
+  final value = paymentMethod?.toLowerCase() ?? '';
   if (value.contains('bca syariah')) {
     return 'assets/logos/bank_transfer/BCA_Syariah.png';
   }
@@ -126,34 +125,4 @@ String? merchantLogoAsset(String? merchant) {
     return 'assets/logos/over_the_counter/indomaret.png';
   }
   return null;
-}
-
-String transactionDescription(Transaction transaction) {
-  final category = transaction.kategori?.trim().isNotEmpty == true
-      ? transaction.kategori!.trim()
-      : 'Transaction';
-  final merchant = transaction.merchant?.trim();
-  final input = transaction.tipeInput?.toLowerCase() ?? '';
-  if (merchant == null || merchant.isEmpty) {
-    return input.contains('receipt')
-        ? '$category from scanned receipt'
-        : '$category transaction';
-  }
-
-  final normalized = category.toLowerCase();
-  if (normalized.contains('donation') || normalized.contains('donasi')) {
-    return 'Donation via $merchant';
-  }
-  if (normalized.contains('food') || normalized.contains('makan')) {
-    return 'Food purchase via $merchant';
-  }
-  if (normalized.contains('transport')) {
-    return 'Transport payment via $merchant';
-  }
-  if (normalized.contains('health')) return 'Health expense via $merchant';
-  if (normalized.contains('utility')) return 'Utility bill via $merchant';
-  if (normalized.contains('lifestyle')) {
-    return 'Lifestyle purchase via $merchant';
-  }
-  return '$category via $merchant';
 }

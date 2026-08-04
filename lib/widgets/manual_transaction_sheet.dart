@@ -31,6 +31,7 @@ class ManualTransactionSheet extends ConsumerStatefulWidget {
 class _ManualTransactionSheetState
     extends ConsumerState<ManualTransactionSheet> {
   late final TextEditingController amountController;
+  late final TextEditingController descriptionController;
   late DateTime date;
   String? category;
   String? paymentMethod;
@@ -46,9 +47,12 @@ class _ManualTransactionSheetState
     amountController = TextEditingController(
       text: transaction?.jumlah?.toString() ?? '',
     );
+    descriptionController = TextEditingController(
+      text: transaction?.description ?? '',
+    );
     category = _canonicalCategory(transaction?.kategori);
-    paymentMethod = transaction?.merchant?.trim().isNotEmpty == true
-        ? transaction!.merchant!.trim()
+    paymentMethod = transaction?.paymentMethod?.trim().isNotEmpty == true
+        ? transaction!.paymentMethod!.trim()
         : null;
     date = DateTime.tryParse(transaction?.tanggal ?? '') ?? DateTime.now();
   }
@@ -56,6 +60,7 @@ class _ManualTransactionSheetState
   @override
   void dispose() {
     amountController.dispose();
+    descriptionController.dispose();
     super.dispose();
   }
 
@@ -74,10 +79,12 @@ class _ManualTransactionSheetState
 
   Future<void> _submit() async {
     final amount = double.tryParse(amountController.text.replaceAll(',', '.'));
+    final description = descriptionController.text.trim();
     if (amount == null ||
         amount <= 0 ||
         category == null ||
-        paymentMethod == null) {
+        paymentMethod == null ||
+        description.isEmpty) {
       setState(() => showValidation = true);
       return;
     }
@@ -91,14 +98,16 @@ class _ManualTransactionSheetState
           date: date,
           amount: amount,
           category: category!,
-          merchant: paymentMethod!,
+          paymentMethod: paymentMethod!,
+          description: description,
         );
       } else {
         await api.createManualTransaction(
           date: date,
           amount: amount,
           category: category!,
-          merchant: paymentMethod!,
+          paymentMethod: paymentMethod!,
+          description: description,
         );
       }
       ref.invalidate(dashboardProvider);
@@ -212,6 +221,22 @@ class _ManualTransactionSheetState
                 category = value;
                 showValidation = false;
               }),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: descriptionController,
+              textCapitalization: TextCapitalization.sentences,
+              maxLines: 2,
+              decoration: appInputDecoration('Description').copyWith(
+                hintText: 'What was this transaction for?',
+                errorText:
+                    showValidation && descriptionController.text.trim().isEmpty
+                    ? 'Enter a description'
+                    : null,
+              ),
+              onChanged: (_) {
+                if (showValidation) setState(() => showValidation = false);
+              },
             ),
             const SizedBox(height: 10),
             InkWell(

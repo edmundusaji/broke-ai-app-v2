@@ -171,11 +171,12 @@ class ApiClient {
     required DateTime date,
     required double amount,
     required String category,
-    required String merchant,
+    required String paymentMethod,
+    required String description,
   }) async {
     final response = await _dio.post(
       '${await _base}expense/manual',
-      data: _expensePayload(date, amount, category, merchant),
+      data: _expensePayload(date, amount, category, paymentMethod, description),
       options: await _options(),
     );
     return Transaction.fromJson(response.data as Map<String, dynamic>);
@@ -186,11 +187,12 @@ class ApiClient {
     required DateTime date,
     required double amount,
     required String category,
-    required String merchant,
+    required String paymentMethod,
+    required String description,
   }) async {
     final response = await _dio.put(
       '${await _base}expense/$id',
-      data: _expensePayload(date, amount, category, merchant),
+      data: _expensePayload(date, amount, category, paymentMethod, description),
       options: await _options(),
     );
     return Transaction.fromJson(response.data as Map<String, dynamic>);
@@ -204,12 +206,14 @@ class ApiClient {
     DateTime date,
     double amount,
     String category,
-    String merchant,
+    String paymentMethod,
+    String description,
   ) => {
     'date': DateFormat('yyyy-MM-dd').format(date),
     'amount': amount,
     'category': category.trim(),
-    'merchant': merchant.trim(),
+    'paymentMethod': paymentMethod.trim(),
+    'description': description.trim(),
   };
 
   Session _sessionFromResponse(

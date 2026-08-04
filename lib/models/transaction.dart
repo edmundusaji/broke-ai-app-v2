@@ -4,7 +4,8 @@ class Transaction {
     this.tanggal,
     this.jumlah,
     this.kategori,
-    this.merchant,
+    this.paymentMethod,
+    this.description,
     this.tipeInput,
   });
 
@@ -12,7 +13,8 @@ class Transaction {
   final String? tanggal;
   final double? jumlah;
   final String? kategori;
-  final String? merchant;
+  final String? paymentMethod;
+  final String? description;
   final String? tipeInput;
 
   factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(
@@ -20,7 +22,8 @@ class Transaction {
     tanggal: json['tanggal'] as String?,
     jumlah: (json['jumlah'] as num?)?.toDouble(),
     kategori: json['kategori'] as String?,
-    merchant: json['merchant'] as String?,
+    paymentMethod: json['paymentMethod'] as String?,
+    description: json['description'] as String?,
     tipeInput: json['tipeInput'] as String?,
   );
 }

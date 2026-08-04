@@ -242,7 +242,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      upgradingGuest
+                      register && upgradingGuest
                           ? 'Your existing transactions will stay connected to this account.'
                           : 'One place for every spending story.',
                       style: const TextStyle(color: AppColors.muted),
@@ -284,21 +284,20 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             : 'Sign in  >',
                       ),
                     ),
-                    if (!upgradingGuest)
-                      TextButton(
-                        onPressed: loading
-                            ? null
-                            : () => setState(() {
-                                register = !register;
-                                error = null;
-                              }),
-                        child: Text(
-                          register
-                              ? 'Already have an account? Sign in'
-                              : 'New here? Register',
-                          style: const TextStyle(color: AppColors.cream),
-                        ),
+                    TextButton(
+                      onPressed: loading
+                          ? null
+                          : () => setState(() {
+                              register = !register;
+                              error = null;
+                            }),
+                      child: Text(
+                        register
+                            ? 'Already have an account? Sign in'
+                            : 'New here? Register',
+                        style: const TextStyle(color: AppColors.cream),
                       ),
+                    ),
                   ],
                 ),
               ),

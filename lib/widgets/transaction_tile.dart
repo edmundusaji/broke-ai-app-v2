@@ -4,7 +4,7 @@ import '../core/app_theme.dart';
 import '../models/transaction.dart';
 import '../utils/formatters.dart';
 import '../utils/transaction_visuals.dart';
-import 'merchant_logo.dart';
+import 'payment_method_logo.dart';
 
 class TransactionTile extends StatelessWidget {
   const TransactionTile({
@@ -21,16 +21,17 @@ class TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final category = transaction.kategori ?? 'Other';
+    final description = transaction.description?.trim();
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-      leading: MerchantLogo(merchant: transaction.merchant, category: category),
+      leading: PaymentMethodLogo(paymentMethod: transaction.paymentMethod),
       title: Text(
         category,
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
-        '${transactionDescription(transaction)} • ${shortDate(transaction.tanggal)}',
+        '${description?.isNotEmpty == true ? description : 'No description'} • ${shortDate(transaction.tanggal)}',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(color: AppColors.muted, height: 1.3),

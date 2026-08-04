@@ -14,7 +14,8 @@ const transaction = Transaction(
   tanggal: '2026-08-04',
   jumlah: 75000,
   kategori: 'Donation',
-  merchant: 'OVO',
+  paymentMethod: 'OVO',
+  description: 'KitaBisa Donation',
   tipeInput: 'MANUAL',
 );
 
@@ -23,17 +24,32 @@ const recentTransaction = Transaction(
   tanggal: '2026-08-05',
   jumlah: 50000,
   kategori: 'Health',
-  merchant: 'GoPay',
+  paymentMethod: 'GoPay',
+  description: 'Cold Medicine',
   tipeInput: 'MANUAL',
 );
 
 void main() {
   setUpAll(() => initializeDateFormatting('id_ID'));
 
-  test('merchant visuals map known brands and create a useful description', () {
-    expect(merchantLogoAsset('OVO'), 'assets/logos/e-wallet/OVO.png');
-    expect(merchantLogoAsset('Unknown payment'), isNull);
-    expect(transactionDescription(transaction), 'Donation via OVO');
+  test('payment method visuals map known brands', () {
+    expect(paymentMethodLogoAsset('OVO'), 'assets/logos/e-wallet/OVO.png');
+    expect(paymentMethodLogoAsset('Unknown payment'), isNull);
+  });
+
+  test('transaction maps AI and manual response fields without synthesis', () {
+    final parsed = Transaction.fromJson(const {
+      'id': 14,
+      'tanggal': '2026-08-05T13:14:15',
+      'jumlah': 25000,
+      'kategori': 'Food',
+      'paymentMethod': 'QRIS',
+      'description': 'Coffee Purchase',
+      'tipeInput': 'RECEIPT',
+    });
+
+    expect(parsed.paymentMethod, 'QRIS');
+    expect(parsed.description, 'Coffee Purchase');
   });
 
   testWidgets('History CTA opens full history with edit and delete actions', (
@@ -67,12 +83,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Health'), findsOneWidget);
+    expect(find.textContaining('Cold Medicine'), findsOneWidget);
     expect(find.text('Donation'), findsNothing);
 
     await tester.tap(find.text('History'));
     await tester.pumpAndSettle();
     expect(find.text('Transaction history'), findsOneWidget);
     expect(find.text('Donation'), findsOneWidget);
+    expect(find.textContaining('KitaBisa Donation'), findsOneWidget);
     expect(find.text('Health'), findsNothing);
 
     await tester.tap(find.text('Donation'));
