@@ -1,4 +1,4 @@
-import 'package:broke_ai_app/main.dart';
+import 'package:broke_ai_app/models/session.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

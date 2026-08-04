@@ -1,4 +1,6 @@
-import 'package:broke_ai_app/main.dart';
+import 'package:broke_ai_app/models/session.dart';
+import 'package:broke_ai_app/pages/scan_page.dart';
+import 'package:broke_ai_app/providers/app_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,7 +27,7 @@ void main() {
           sessionProvider.overrideWith((ref) async => _guestSession(2)),
           remainingAiTrialsProvider.overrideWith((ref) => 2),
         ],
-        child: const MaterialApp(home: Scaffold(body: CaptureScreen())),
+        child: const MaterialApp(home: Scaffold(body: ScanPage())),
       ),
     );
     await tester.pumpAndSettle();
@@ -44,7 +46,7 @@ void main() {
           sessionProvider.overrideWith((ref) async => _guestSession(0)),
           remainingAiTrialsProvider.overrideWith((ref) => 0),
         ],
-        child: const MaterialApp(home: Scaffold(body: CaptureScreen())),
+        child: const MaterialApp(home: Scaffold(body: ScanPage())),
       ),
     );
     await tester.pumpAndSettle();

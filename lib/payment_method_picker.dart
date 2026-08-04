@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'widgets/merchant_logo.dart';
+
 const _ink = Color(0xff111111);
 const _panel = Color(0xff292720);
 const _cream = Color(0xfffff7e8);
@@ -20,7 +22,7 @@ class PaymentMethodGroup {
 
 const paymentMethodGroups = <PaymentMethodGroup>[
   PaymentMethodGroup(
-    title: 'Virtual Account Transfer',
+    title: 'Bank Transfer',
     icon: Icons.account_balance_rounded,
     options: [
       'Bank BCA',
@@ -420,59 +422,10 @@ class _OptionPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
     message: label,
-    child: Container(
-      width: large ? 32 : 28,
-      height: large ? 32 : 28,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xff37342d),
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: const Color(0xff4b463d)),
-      ),
-      child: Text(
-        _paymentMark(label),
-        maxLines: 1,
-        style: TextStyle(
-          color: _gold,
-          fontSize: large ? 9 : 8,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.3,
-        ),
-      ),
+    child: MerchantLogo(
+      merchant: label,
+      category: 'Payment',
+      size: large ? 32 : 28,
     ),
   );
-}
-
-String _paymentMark(String label) {
-  const marks = <String, String>{
-    'Bank BCA': 'BCA',
-    'Bank Mandiri': 'MDR',
-    'Bank BNI': 'BNI',
-    'Bank BRI / Other Banks': 'BRI',
-    'Bank Danamon': 'DMN',
-    'Bank Permata': 'PMT',
-    'Bank BSI': 'BSI',
-    'Bank BCA Syariah': 'BCS',
-    'Credit/Debit Card (Visa, Mastercard, JCB, Amex)': 'CARD',
-    'QRIS (Scan all e-wallets / mobile banking)': 'QR',
-    'GoPay': 'GP',
-    'OVO': 'OVO',
-    'DANA': 'DANA',
-    'LinkAja': 'LA',
-    'Sakuku': 'SAK',
-    'LinkAja Syariah': 'LAS',
-    'Akulaku Paylater': 'AKU',
-    'Kredivo': 'KRD',
-    'Home Credit': 'HC',
-    'BRI Ceria': 'BRC',
-    'Jenius Pay': 'JNS',
-    'OCTO Clicks / OCTO Mobile': 'OCTO',
-    'OneKlik': '1K',
-    'OCTO Cash by CIMB Niaga': 'OC',
-    'Alfa Group (Alfamart, Alfamidi, Lawson)': 'ALFA',
-    'Indomaret': 'IND',
-    'Cash / Pay on Delivery': 'COD',
-  };
-  final end = label.length < 4 ? label.length : 4;
-  return marks[label] ?? label.substring(0, end).toUpperCase();
 }

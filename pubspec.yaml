@@ -64,6 +64,16 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - assets/logos/bank_transfer/
+    - assets/logos/cardless_credit/
+    - assets/logos/credit_debit/
+    - assets/logos/e-wallet/
+    - assets/logos/instant_debit/
+    - assets/logos/internet_banking/
+    - assets/logos/over_the_counter/
+    - assets/logos/QRIS/
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
