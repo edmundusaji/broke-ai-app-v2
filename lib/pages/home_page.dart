@@ -151,7 +151,7 @@ class HomePage extends ConsumerWidget {
               const SizedBox(height: 10),
               SurfaceCard(
                 padding: EdgeInsets.zero,
-                child: data.history.isEmpty
+                child: data.recent.isEmpty
                     ? const Padding(
                         padding: EdgeInsets.all(20),
                         child: Text(
@@ -160,7 +160,7 @@ class HomePage extends ConsumerWidget {
                         ),
                       )
                     : Column(
-                        children: data.history
+                        children: data.recent
                             .take(5)
                             .map(
                               (transaction) =>

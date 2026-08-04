@@ -6,7 +6,11 @@ import '../models/transaction.dart';
 import '../services/api_client.dart';
 import '../services/session_store.dart';
 
-typedef DashboardData = ({ExpenseSummary summary, List<Transaction> history});
+typedef DashboardData = ({
+  ExpenseSummary summary,
+  List<Transaction> history,
+  List<Transaction> recent,
+});
 
 final sessionStoreProvider = Provider<SessionStore>((_) => SessionStore());
 final apiProvider = Provider<ApiClient>(
@@ -31,10 +35,12 @@ final dashboardProvider = FutureProvider.autoDispose<DashboardData>((
   final results = await Future.wait<Object>([
     api.summary(month),
     api.history(month),
+    api.recentTransactions(),
   ]);
   return (
     summary: results[0] as ExpenseSummary,
     history: results[1] as List<Transaction>,
+    recent: results[2] as List<Transaction>,
   );
 });
 

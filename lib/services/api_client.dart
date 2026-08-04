@@ -116,6 +116,16 @@ class ApiClient {
         .toList();
   }
 
+  Future<List<Transaction>> recentTransactions() async {
+    final response = await _dio.get(
+      '${await _base}expense/recent',
+      options: await _options(),
+    );
+    return (response.data as List)
+        .map((item) => Transaction.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<Transaction> notification(String text) async {
     try {
       final response = await _dio.post(

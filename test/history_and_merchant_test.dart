@@ -18,6 +18,15 @@ const transaction = Transaction(
   tipeInput: 'MANUAL',
 );
 
+const recentTransaction = Transaction(
+  id: 13,
+  tanggal: '2026-08-05',
+  jumlah: 50000,
+  kategori: 'Health',
+  merchant: 'GoPay',
+  tipeInput: 'MANUAL',
+);
+
 void main() {
   setUpAll(() => initializeDateFormatting('id_ID'));
 
@@ -48,6 +57,7 @@ void main() {
                 CategorySummary('Donation', 75000),
               ]),
               history: const [transaction],
+              recent: const [recentTransaction],
             ),
           ),
         ],
@@ -56,9 +66,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Health'), findsOneWidget);
+    expect(find.text('Donation'), findsNothing);
+
     await tester.tap(find.text('History'));
     await tester.pumpAndSettle();
     expect(find.text('Transaction history'), findsOneWidget);
+    expect(find.text('Donation'), findsOneWidget);
+    expect(find.text('Health'), findsNothing);
 
     await tester.tap(find.text('Donation'));
     await tester.pumpAndSettle();
