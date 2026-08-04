@@ -219,7 +219,7 @@ class _ManualTransactionSheetState
               borderRadius: BorderRadius.circular(15),
               child: InputDecorator(
                 isEmpty: paymentMethod == null,
-                decoration: appInputDecoration('Payment').copyWith(
+                decoration: appInputDecoration('').copyWith(
                   errorText: showValidation && paymentMethod == null
                       ? 'Select a payment method'
                       : null,
