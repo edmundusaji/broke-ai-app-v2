@@ -56,7 +56,7 @@ void main() {
     expect(input, findsOneWidget);
     await tester.enterText(input, 'Paid Rp 25.000 with GoPay');
 
-    final processButton = find.text('Proses Transaksi >');
+    final processButton = find.text('Process with AI');
     await tester.ensureVisible(processButton);
     await tester.tap(processButton);
     await tester.pumpAndSettle();

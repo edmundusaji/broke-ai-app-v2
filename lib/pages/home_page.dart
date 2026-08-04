@@ -44,7 +44,7 @@ class HomePage extends ConsumerWidget {
                           ),
                         ),
                         const Text(
-                          'Mari cek kondisi dompetmu.',
+                          'Let\'s track your spending!',
                           style: TextStyle(color: AppColors.muted),
                         ),
                       ],
@@ -62,7 +62,7 @@ class HomePage extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Pengeluaran bulan ini'),
+                          const Text('This month\'s expense'),
                           const SizedBox(height: 8),
                           Text(
                             money(data.summary.total),
@@ -73,7 +73,7 @@ class HomePage extends ConsumerWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Tersinkronisasi',
+                            'Synced',
                             style: TextStyle(color: AppColors.cream),
                           ),
                         ],
@@ -90,7 +90,7 @@ class HomePage extends ConsumerWidget {
               Row(
                 children: [
                   MetricCard(
-                    label: 'Hari ini',
+                    label: 'Today',
                     value: money(
                       data.history
                           .where((transaction) => isToday(transaction.tanggal))
@@ -104,7 +104,7 @@ class HomePage extends ConsumerWidget {
                   ),
                   const SizedBox(width: 12),
                   MetricCard(
-                    label: 'Transaksi',
+                    label: 'Transactions',
                     value: '${data.history.length}',
                     icon: Icons.receipt_long_outlined,
                     color: AppColors.coral,
@@ -129,7 +129,7 @@ class HomePage extends ConsumerWidget {
                 children: [
                   const Expanded(
                     child: Text(
-                      'Aktivitas terbaru',
+                      'Newest activities',
                       style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,
@@ -155,7 +155,7 @@ class HomePage extends ConsumerWidget {
                     ? const Padding(
                         padding: EdgeInsets.all(20),
                         child: Text(
-                          'Riwayat akan tampil di sini.',
+                          'No activities yet..',
                           style: TextStyle(color: AppColors.muted),
                         ),
                       )
@@ -188,7 +188,7 @@ class _SpendingChart extends StatelessWidget {
         height: 180,
         child: Center(
           child: Text(
-            'Belum ada transaksi.',
+            'No transactions yet',
             style: TextStyle(color: AppColors.muted),
           ),
         ),

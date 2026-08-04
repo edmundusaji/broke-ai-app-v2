@@ -177,7 +177,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Posisikan seluruh struk di dalam area fokus.',
+            'Snap a photo of your receipt or upload an image to analyze it with AI',
             style: TextStyle(color: AppColors.muted),
           ),
           if (isGuest) ...[
@@ -222,12 +222,12 @@ class _ScanPageState extends ConsumerState<ScanPage> {
               minimumSize: const Size(0, 54),
             ),
             child: Text(
-              processing ? 'Analyzing with AI...' : 'Analyze receipt  >',
+              processing ? 'Analyzing with AI...' : 'Analyze with AI',
             ),
           ),
           const SizedBox(height: 28),
           const Text(
-            'Input Teks Notifikasi / Manual',
+            'Input using text',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
           ),
           const SizedBox(height: 8),
@@ -235,7 +235,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
             controller: notificationController,
             maxLines: 3,
             decoration: appInputDecoration(
-              'Paste notification or transaction text here...',
+              'Input the activities, e.g. "KFC 25.000 GoPay"',
             ),
           ),
           const SizedBox(height: 8),
@@ -246,7 +246,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
               foregroundColor: AppColors.ink,
               minimumSize: const Size(0, 52),
             ),
-            child: const Text('Proses Transaksi >'),
+            child: const Text('Process with AI'),
           ),
         ],
       ),
