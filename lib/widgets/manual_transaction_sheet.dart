@@ -45,16 +45,16 @@ class _ManualTransactionSheetState
     super.initState();
     final transaction = widget.transaction;
     amountController = TextEditingController(
-      text: transaction?.jumlah?.toString() ?? '',
+      text: transaction?.amount?.toString() ?? '',
     );
     descriptionController = TextEditingController(
       text: transaction?.description ?? '',
     );
-    category = _canonicalCategory(transaction?.kategori);
+    category = _canonicalCategory(transaction?.category);
     paymentMethod = transaction?.paymentMethod?.trim().isNotEmpty == true
         ? transaction!.paymentMethod!.trim()
         : null;
-    date = DateTime.tryParse(transaction?.tanggal ?? '') ?? DateTime.now();
+    date = DateTime.tryParse(transaction?.date ?? '') ?? DateTime.now();
   }
 
   @override

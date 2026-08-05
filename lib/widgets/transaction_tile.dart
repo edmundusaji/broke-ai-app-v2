@@ -20,7 +20,7 @@ class TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final category = transaction.kategori ?? 'Other';
+    final category = transaction.category ?? 'Other';
     final description = transaction.description?.trim();
     return ListTile(
       onTap: onTap,
@@ -31,7 +31,7 @@ class TransactionTile extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
-        '${description?.isNotEmpty == true ? description : 'No description'} • ${shortDate(transaction.tanggal)}',
+        '${description?.isNotEmpty == true ? description : 'No description'} • ${shortDate(transaction.date)}',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(color: AppColors.muted, height: 1.3),
@@ -39,7 +39,7 @@ class TransactionTile extends StatelessWidget {
       trailing:
           trailing ??
           Text(
-            '-${money(transaction.jumlah ?? 0)}',
+            '-${money(transaction.amount ?? 0)}',
             style: TextStyle(
               color: categoryColor(category),
               fontWeight: FontWeight.w800,

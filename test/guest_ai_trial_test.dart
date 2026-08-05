@@ -12,7 +12,7 @@ Session _guestSession(int remainingTrials) => Session(
   username: 'guest_123',
   isGuest: true,
   remainingAiTrials: remainingTrials,
-  name: 'Guest User',
+  fullName: 'Guest User',
 );
 
 void main() {

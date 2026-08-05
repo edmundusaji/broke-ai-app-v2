@@ -11,22 +11,22 @@ import 'package:intl/date_symbol_data_local.dart';
 
 const transaction = Transaction(
   id: 12,
-  tanggal: '2026-08-04',
-  jumlah: 75000,
-  kategori: 'Donation',
+  date: '2026-08-04',
+  amount: 75000,
+  category: 'Donation',
   paymentMethod: 'OVO',
   description: 'KitaBisa Donation',
-  tipeInput: 'MANUAL',
+  inputType: 'MANUAL',
 );
 
 const recentTransaction = Transaction(
   id: 13,
-  tanggal: '2026-08-05',
-  jumlah: 50000,
-  kategori: 'Health',
+  date: '2026-08-05',
+  amount: 50000,
+  category: 'Health',
   paymentMethod: 'GoPay',
   description: 'Cold Medicine',
-  tipeInput: 'MANUAL',
+  inputType: 'MANUAL',
 );
 
 void main() {
@@ -40,16 +40,20 @@ void main() {
   test('transaction maps AI and manual response fields without synthesis', () {
     final parsed = Transaction.fromJson(const {
       'id': 14,
-      'tanggal': '2026-08-05T13:14:15',
-      'jumlah': 25000,
-      'kategori': 'Food',
+      'date': '2026-08-05T13:14:15',
+      'amount': 25000,
+      'category': 'Food',
       'paymentMethod': 'QRIS',
       'description': 'Coffee Purchase',
-      'tipeInput': 'RECEIPT',
+      'inputType': 'RECEIPT',
+      'validationStatus': 'PENDING',
     });
 
     expect(parsed.paymentMethod, 'QRIS');
     expect(parsed.description, 'Coffee Purchase');
+    expect(parsed.inputType, 'RECEIPT');
+    expect(parsed.validationStatus, 'PENDING');
+    expect(parsed.toJson(), containsPair('amount', 25000.0));
   });
 
   testWidgets('History CTA opens full history with edit and delete actions', (

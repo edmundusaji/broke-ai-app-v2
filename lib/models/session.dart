@@ -5,7 +5,7 @@ class Session {
     required this.username,
     required this.isGuest,
     this.remainingAiTrials = 0,
-    this.name,
+    this.fullName,
     this.email,
   });
 
@@ -14,12 +14,33 @@ class Session {
   final String username;
   final bool isGuest;
   final int remainingAiTrials;
-  final String? name;
+  final String? fullName;
   final String? email;
+
+  factory Session.fromJson(Map<String, dynamic> json) => Session(
+    token: json['token'] as String,
+    expiresAt: DateTime.parse(json['expiresAt'] as String),
+    username: json['username'] as String,
+    isGuest: json['isGuest'] as bool? ?? false,
+    remainingAiTrials: (json['remaining_ai_trials'] as num?)?.toInt() ?? 0,
+    fullName: json['fullName'] as String?,
+    email: json['email'] as String?,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'token': token,
+    'expiresAt': expiresAt.toIso8601String(),
+    'username': username,
+    'isGuest': isGuest,
+    'remaining_ai_trials': remainingAiTrials,
+    'fullName': fullName,
+    'email': email,
+  };
 
   bool get valid =>
       token.trim().isNotEmpty && expiresAt.isAfter(DateTime.now());
-  String get displayName => (name?.isNotEmpty ?? false) ? name! : username;
+  String get displayName =>
+      (fullName?.isNotEmpty ?? false) ? fullName! : username;
   String get initials {
     final parts = displayName.trim().split(RegExp(r'\s+'));
     if (parts.length > 1) {
@@ -37,7 +58,7 @@ class Session {
     username: username,
     isGuest: isGuest ?? this.isGuest,
     remainingAiTrials: remainingAiTrials ?? this.remainingAiTrials,
-    name: name,
+    fullName: fullName,
     email: email,
   );
 }

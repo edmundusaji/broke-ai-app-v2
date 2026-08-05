@@ -22,20 +22,35 @@ Session _session({required bool isGuest}) => Session(
   expiresAt: DateTime.now().add(const Duration(hours: 1)),
   username: isGuest ? 'guest_123' : 'edmund',
   isGuest: isGuest,
-  name: isGuest ? 'Guest User' : 'Edmund',
+  fullName: isGuest ? 'Guest User' : 'Edmund',
 );
 
 const _transaction = Transaction(
   id: 21,
-  tanggal: '2026-08-05T14:20:31',
-  jumlah: 45000,
-  kategori: 'Food',
+  date: '2026-08-05T14:20:31',
+  amount: 45000,
+  category: 'Food',
   paymentMethod: 'GoPay',
   description: 'Lunch at the office',
-  tipeInput: 'MANUAL',
+  inputType: 'MANUAL',
+  validationStatus: 'CONFIRMED',
 );
 
 class _RecordingAdapter implements HttpClientAdapter {
+  _RecordingAdapter({
+    this.responseData = const {
+      'id': 22,
+      'date': '2026-08-05T14:20:31',
+      'amount': 45000,
+      'category': 'Food',
+      'paymentMethod': 'GoPay',
+      'description': 'Lunch at the office',
+      'inputType': 'MANUAL',
+      'validationStatus': 'CONFIRMED',
+    },
+  });
+
+  final Object responseData;
   RequestOptions? request;
 
   @override
@@ -46,15 +61,7 @@ class _RecordingAdapter implements HttpClientAdapter {
   ) async {
     request = options;
     return ResponseBody.fromString(
-      jsonEncode({
-        'id': 22,
-        'tanggal': '2026-08-05T14:20:31',
-        'jumlah': 45000,
-        'kategori': 'Food',
-        'paymentMethod': 'GoPay',
-        'description': 'Lunch at the office',
-        'tipeInput': 'MANUAL',
-      }),
+      jsonEncode(responseData),
       200,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -97,6 +104,49 @@ void main() {
     });
     expect(result.paymentMethod, 'GoPay');
     expect(result.description, 'Lunch at the office');
+  });
+
+  test('registration sends fullName and login reads fullName', () async {
+    SharedPreferences.setMockInitialValues({
+      'base_url': 'https://example.test/api/v1/',
+    });
+    final store = SessionStore();
+    final registerAdapter = _RecordingAdapter(responseData: const {});
+    final registerApi = ApiClient(
+      store,
+      dio: Dio()..httpClientAdapter = registerAdapter,
+    );
+
+    await registerApi.register(
+      fullName: 'Edmund Aji',
+      username: 'edmund',
+      email: 'edmund@example.com',
+      password: 'secret123',
+    );
+    expect(registerAdapter.request?.data, {
+      'fullName': 'Edmund Aji',
+      'username': 'edmund',
+      'email': 'edmund@example.com',
+      'password': 'secret123',
+    });
+
+    final loginAdapter = _RecordingAdapter(
+      responseData: const {
+        'token': 'account-token',
+        'expiresIn': 3600,
+        'username': 'edmund',
+        'isGuest': false,
+        'user': {'fullName': 'Edmund Aji', 'email': 'edmund@example.com'},
+      },
+    );
+    final loginApi = ApiClient(
+      store,
+      dio: Dio()..httpClientAdapter = loginAdapter,
+    );
+    final session = await loginApi.login('edmund', 'secret123');
+
+    expect(session.fullName, 'Edmund Aji');
+    expect(session.displayName, 'Edmund Aji');
   });
 
   testWidgets('guest profile replaces logout with Login / Register', (

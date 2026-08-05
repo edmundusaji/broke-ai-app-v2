@@ -54,7 +54,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
         setState(() => image = null);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Recorded: ${money(transaction.jumlah ?? 0)}'),
+            content: Text('Recorded: ${money(transaction.amount ?? 0)}'),
           ),
         );
       }

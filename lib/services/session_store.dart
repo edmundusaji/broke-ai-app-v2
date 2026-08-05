@@ -23,15 +23,7 @@ class SessionStore {
       final raw = await _storage.read(key: _key);
       if (raw == null) return null;
       final json = jsonDecode(raw) as Map<String, dynamic>;
-      final session = Session(
-        token: json['token'] as String,
-        expiresAt: DateTime.parse(json['expiresAt'] as String),
-        username: json['username'] as String,
-        isGuest: json['isGuest'] as bool? ?? false,
-        remainingAiTrials: (json['remaining_ai_trials'] as num?)?.toInt() ?? 0,
-        name: json['name'] as String?,
-        email: json['email'] as String?,
-      );
+      final session = Session.fromJson(json);
       if (!session.isGuest && session.valid) return session;
     } catch (_) {
       // Invalid legacy storage should fall back to the signed-out route.
@@ -48,18 +40,7 @@ class SessionStore {
     }
 
     _activeGuestSession = null;
-    await _storage.write(
-      key: _key,
-      value: jsonEncode({
-        'token': session.token,
-        'expiresAt': session.expiresAt.toIso8601String(),
-        'username': session.username,
-        'isGuest': false,
-        'remaining_ai_trials': session.remainingAiTrials,
-        'name': session.name,
-        'email': session.email,
-      }),
-    );
+    await _storage.write(key: _key, value: jsonEncode(session.toJson()));
   }
 
   void updateActiveGuestTrials(int remainingTrials) {

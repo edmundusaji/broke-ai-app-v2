@@ -1,14 +1,19 @@
 class CategorySummary {
-  const CategorySummary(this.name, this.total);
+  const CategorySummary(this.category, this.totalAmount);
 
-  final String name;
-  final double total;
+  final String category;
+  final double totalAmount;
 
   factory CategorySummary.fromJson(Map<String, dynamic> json) =>
       CategorySummary(
-        json['kategori'] as String? ?? 'Other',
+        json['category'] as String? ?? 'Other',
         (json['totalAmount'] as num?)?.toDouble() ?? 0,
       );
+
+  Map<String, dynamic> toJson() => {
+    'category': category,
+    'totalAmount': totalAmount,
+  };
 }
 
 class ExpenseSummary {

@@ -61,7 +61,7 @@ class ApiClient {
   }
 
   Future<void> register({
-    required String name,
+    required String fullName,
     required String username,
     required String email,
     required String password,
@@ -70,7 +70,7 @@ class ApiClient {
     await _dio.post(
       '${await _base}auth/register',
       data: {
-        'namaLengkap': name.trim(),
+        'fullName': fullName.trim(),
         'username': username.trim(),
         'email': email.trim(),
         'password': password,
@@ -80,14 +80,14 @@ class ApiClient {
   }
 
   Future<Session> upgradeGuest({
-    required String name,
+    required String fullName,
     required String email,
     required String password,
   }) async {
     final response = await _dio.post(
       '${await _base}auth/upgrade-guest',
       data: {
-        'namaLengkap': name.trim(),
+        'fullName': fullName.trim(),
         'email': email.trim(),
         'password': password,
       },
@@ -229,7 +229,7 @@ class ApiClient {
       username: json['username'] as String? ?? fallbackUsername ?? 'guest',
       isGuest: json['isGuest'] as bool? ?? false,
       remainingAiTrials: (json['remaining_ai_trials'] as num?)?.toInt() ?? 0,
-      name: user?['name'] as String?,
+      fullName: user?['fullName'] as String?,
       email: user?['email'] as String?,
     );
   }

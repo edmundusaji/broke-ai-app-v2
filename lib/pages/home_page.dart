@@ -93,10 +93,10 @@ class HomePage extends ConsumerWidget {
                     label: 'Today',
                     value: money(
                       data.history
-                          .where((transaction) => isToday(transaction.tanggal))
+                          .where((transaction) => isToday(transaction.date))
                           .fold<double>(
                             0,
-                            (sum, item) => sum + (item.jumlah ?? 0),
+                            (sum, item) => sum + (item.amount ?? 0),
                           ),
                     ),
                     icon: Icons.today_outlined,
@@ -205,8 +205,8 @@ class _SpendingChart extends StatelessWidget {
               sections: data.summary.categories
                   .map(
                     (category) => PieChartSectionData(
-                      value: category.total,
-                      color: categoryColor(category.name),
+                      value: category.totalAmount,
+                      color: categoryColor(category.category),
                       radius: 38,
                       title: '',
                     ),
@@ -220,19 +220,19 @@ class _SpendingChart extends StatelessWidget {
           spacing: 12,
           runSpacing: 8,
           children: data.summary.categories.map((category) {
-            final percentage = (category.total / data.summary.total * 100)
+            final percentage = (category.totalAmount / data.summary.total * 100)
                 .round();
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  categoryIcon(category.name),
+                  categoryIcon(category.category),
                   size: 15,
-                  color: categoryColor(category.name),
+                  color: categoryColor(category.category),
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  '${category.name} ($percentage%)',
+                  '${category.category} ($percentage%)',
                   style: const TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
               ],

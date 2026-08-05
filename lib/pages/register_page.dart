@@ -166,7 +166,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           throw Exception('Password confirmation does not match.');
         }
         await api.register(
-          name: controllers[0].text,
+          fullName: controllers[0].text,
           username: controllers[1].text,
           email: controllers[2].text,
           password: controllers[3].text,
