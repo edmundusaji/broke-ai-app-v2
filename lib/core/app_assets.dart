@@ -29,4 +29,8 @@ abstract final class AppAssets {
   static const manualDog = 'assets/mockups/light_mode/homepage/manual-dog.png';
   static const manualCategoryDog =
       'assets/mockups/light_mode/homepage/manual-category-dog.png';
+  static const scanReceiptIllustration =
+      'assets/mockups/light_mode/scanpage/scan-receipt-illustration.png';
+  static const profileSecurityShield =
+      'assets/mockups/light_mode/profilepage/profile-security-shield.png';
 }

@@ -57,3 +57,43 @@ Separate crops were not required because each combined 1440 x 1530 comparison ke
 - P3: the design's decorative category thumbnails are not separate supplied assets, so the implementation uses the closest category icons while retaining all supplied mascot and payment-logo imagery.
 
 final result: passed
+
+---
+
+# Scan and Profile Design QA
+
+## Comparison target
+
+- Source visual truth:
+  - `assets/mockups/light_mode/scanpage/scanPage.png`
+  - `assets/mockups/light_mode/profilepage/profilepage.png`
+- Rendered implementation:
+  - `qa/scan-final.png`
+  - `qa/profile-final.png`
+- Combined comparison evidence:
+  - `qa/comparison-scan.png`
+  - `qa/comparison-profile.png`
+- Device viewport: 1280 x 2856 physical pixels, approximately 426.7 x 952 logical pixels at 480 dpi (device pixel ratio 3).
+- State: idle guest scan with two trials remaining, and guest profile with registration prompt.
+
+## Findings
+
+- No actionable P0, P1, or P2 differences remain.
+- Scan: hierarchy, trial badge, dashed receipt frame, camera/gallery actions, disabled AI state, text-entry card, gold processing action, informational callout, and selected navigation state follow the reference. The page scrolls on the verification device so lower content stays usable instead of compressing the viewfinder.
+- Profile: header, guest identity card, gold registration prompt, grouped Account/Support settings, guest backup notice, and selected navigation state follow the reference. Dynamic guest identifiers remain sourced from the real session.
+- Assets: the missing receipt and security-shield artwork was generated as dedicated raster assets in the same soft 3D visual language and placed in measured image slots. No placeholder boxes, text glyphs, or handcrafted vector approximations are used.
+- Responsiveness: the registration banner was tightened after the first comparison so its copy and CTA remain readable in a compact horizontal composition on a 426.7-logical-pixel viewport. Long guest usernames truncate safely, lists scroll, and persistent navigation does not overflow.
+- Functional states: Camera and Gallery still invoke image selection, receipt previews remain clipped inside the rounded frame, the preview-only close action is preserved, text processing and guest trial enforcement still use the existing API/provider flow, and Profile retains login/register or logout behavior according to session type.
+
+## Comparison history
+
+1. Initial profile capture exposed a P2 vertical expansion in the registration banner caused by narrow text and button columns. Avatar, gaps, typography, and button padding were responsively tightened.
+2. The follow-up combined comparison shows the reference-faithful horizontal banner, clear copy, stable grouped cards, and no overflow.
+3. The scan comparison shows the requested component order and visual states without an actionable P0/P1/P2 mismatch. The additional visible system status bar and taller emulator aspect are platform viewport differences, not component defects.
+
+## Interaction verification
+
+- The Home empty-state `Add Expense` button opens the same fully functional manual transaction sheet as the floating action button (`qa/add-expense-manual-final.png`).
+- `flutter analyze` reports no issues, all 27 Flutter tests pass, and the Android debug APK builds successfully.
+
+final result: passed

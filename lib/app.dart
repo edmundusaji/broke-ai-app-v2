@@ -120,25 +120,53 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
           ],
         ),
-        child: NavigationBar(
-          backgroundColor: Colors.transparent,
-          indicatorColor: const Color(0x145b50f6),
-          selectedIndex: page,
-          onDestinationSelected: (index) => setState(() => page = index),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.grid_view_rounded),
-              label: 'Home',
+        child: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            indicatorColor: page == 1
+                ? const Color(0xffffbf30)
+                : const Color(0xfff0edff),
+            iconTheme: WidgetStateProperty.resolveWith(
+              (states) => IconThemeData(
+                color: states.contains(WidgetState.selected)
+                    ? page == 1
+                          ? AppColors.textPrimary
+                          : AppColors.primaryAccent
+                    : AppColors.textSecondary,
+              ),
             ),
-            NavigationDestination(
-              icon: Icon(Icons.document_scanner_outlined),
-              label: 'Scan',
+            labelTextStyle: WidgetStateProperty.resolveWith(
+              (states) => TextStyle(
+                color: states.contains(WidgetState.selected)
+                    ? page == 1
+                          ? AppColors.textPrimary
+                          : AppColors.primaryAccent
+                    : AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Profile',
-            ),
-          ],
+          ),
+          child: NavigationBar(
+            backgroundColor: Colors.transparent,
+            selectedIndex: page,
+            onDestinationSelected: (index) => setState(() => page = index),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: 'Home',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.document_scanner_outlined),
+                selectedIcon: Icon(Icons.document_scanner_rounded),
+                label: 'Scan',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline_rounded),
+                selectedIcon: Icon(Icons.person_rounded),
+                label: 'Profile',
+              ),
+            ],
+          ),
         ),
       ),
     );

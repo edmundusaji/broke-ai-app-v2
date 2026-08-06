@@ -10,6 +10,7 @@ import '../utils/formatters.dart';
 import '../utils/transaction_visuals.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/mascot_image.dart';
+import '../widgets/manual_transaction_sheet.dart';
 import '../widgets/surface_card.dart';
 import '../widgets/transaction_tile.dart';
 import 'history_page.dart';
@@ -265,10 +266,11 @@ class _SpendingChart extends StatelessWidget {
           _GradientActionButton(
             icon: Icons.add_rounded,
             label: 'Add Expense',
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Tap the + button to add an expense.'),
-              ),
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const ManualTransactionSheet(),
             ),
           ),
         ],
