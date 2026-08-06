@@ -58,7 +58,7 @@ void main() {
     await tester.ensureVisible(accountButton);
     await tester.tap(accountButton);
     await tester.pumpAndSettle();
-    expect(find.text('Welcome back.'), findsOneWidget);
+    expect(find.text('Welcome\nback.'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Back to start options'));
     await tester.pumpAndSettle();

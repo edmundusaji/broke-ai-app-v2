@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,6 +18,7 @@ class OnboardingPage extends ConsumerStatefulWidget {
 
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   final PageController _controller = PageController();
+  Timer? _autoAdvanceTimer;
   int _page = 0;
   bool _loading = false;
   String? _error;
@@ -65,7 +68,17 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _autoAdvanceTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _showNextSlide(),
+    );
+  }
+
+  @override
   void dispose() {
+    _autoAdvanceTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -97,8 +110,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   void _showNextSlide() {
-    if (_page >= _slides.length - 1) return;
-    _controller.nextPage(
+    if (!_controller.hasClients || _loading) return;
+    final nextPage = (_page + 1) % _slides.length;
+    _controller.animateToPage(
+      nextPage,
       duration: const Duration(milliseconds: 380),
       curve: Curves.easeOutCubic,
     );

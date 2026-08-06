@@ -1,51 +1,59 @@
-# App Icon, Boot, and Onboarding Design QA
+# Authentication and Onboarding Design QA
 
-## Evidence
+## Comparison target
 
 - Source visual truth:
-  - `assets/app-icon/icon-2.png` (1254 x 1254 px)
-  - `assets/mockups/light_mode/onboardingPage1.png` (941 x 1672 px)
-  - `assets/mockups/light_mode/onboardingPage2.png` (941 x 1672 px)
-  - `assets/mockups/light_mode/onboardingPage3.png` (853 x 1844 px)
+  - `assets/mockups/light_mode/loginPage.png`
+  - `assets/mockups/light_mode/registerPage1.png`
+  - `assets/mockups/light_mode/registerPage2.png`
+  - `assets/mockups/light_mode/registerPage3.png`
 - Rendered implementation:
-  - `qa/implementation-native-splash.png` (1280 x 2856 px)
-  - `qa/implementation-flutter-boot.png` (1280 x 2856 px)
-  - `qa/implementation-onboarding-1.png` (1280 x 2856 px)
-  - `qa/implementation-onboarding-2.png` (1280 x 2856 px)
-  - `qa/implementation-onboarding-3.png` (1280 x 2856 px)
-- Full-view comparison evidence: `qa/onboarding-carousel-comparison.png`.
-- Device viewport: Android 17 emulator, 1280 x 2856 physical pixels, 426.67 x 952 logical pixels, device pixel ratio 3.0.
-- State: clean app data, signed out, onboarding pages 1 through 3.
-- Normalization: each source and implementation pair was proportionally fitted into an 800 x 1020 comparison panel. The references include different decorative device frames, while the implementation capture is the unframed Android app viewport; system chrome and frame-only differences were not scored as app-content defects.
-- Focused comparison: a separate crop was not needed because the high-resolution three-row comparison keeps the headings, feature illustrations, dots, buttons, borders, and copy readable. The native and Flutter boot states were inspected independently at full resolution.
+  - `qa/implementation-login.png`
+  - `qa/implementation-register-1.png`
+  - `qa/implementation-register-2.png`
+  - `qa/implementation-register-3.png`
+- Combined comparison evidence:
+  - `qa/comparison-login.png`
+  - `qa/comparison-register-1.png`
+  - `qa/comparison-register-2.png`
+  - `qa/comparison-register-3.png`
+- Device viewport: 1280 x 2856 physical pixels, 426.67 x 952 logical pixels, device pixel ratio 3.
+- Normalization: implementation screenshots were cropped from y=156 through y=2784 to remove Android-owned status/navigation bars. Reference images were resized to 1280 physical pixels wide and compared beside the 1280-pixel-wide implementation crop.
+- States: signed-out login, registration Step 1, registration Step 2, and registration Step 3 with realistic completed account data.
 
 ## Findings
 
 - No actionable P0, P1, or P2 differences remain.
-- Fonts and typography: the implementation preserves the references' heavy display hierarchy, blue highlighted final line, compact body copy, and bold CTA labels without clipping. The platform font fallback has a small optical difference from the rendered mockup font but keeps the intended wrapping and hierarchy.
-- Spacing and layout rhythm: all three pages retain the same hero, feature card, three-dot indicator, primary CTA, and secondary CTA order. The layout adapts the shorter framed references to the emulator's taller viewport without hiding controls or requiring a scroll to reach the main actions.
-- Colors and visual tokens: the off-white background, dark slate text, electric blue highlight, soft lavender borders, gold active dot, gold gradient CTA, and blue outlined secondary action follow the selected references.
-- Image quality and asset fidelity: all three supplied dog assets are rendered at high quality. The rocket, analytics clipboard, and receipt illustrations are extracted from the supplied reference art and used directly rather than approximated with generic icons. The supplied app icon is used by the native splash, Flutter boot page, and platform launcher assets.
-- Copy and content: the three headings, explanatory text, Guest Mode, Smarter Insights, Smart Tracking, Try Now, and Sign In / Register content match the reference intent and remain readable.
-- Accessibility and behavior: pages expose semantic page numbers and heading labels; dots and cards are tappable; swipe navigation works; and both CTAs retain practical mobile tap targets.
+- Fonts and typography: the implementation preserves the mockups' heavy dark-slate display hierarchy, muted body copy, clear field labels, and purple active labels. Flutter's platform font has a slightly heavier optical appearance than the source typeface; this is acceptable P3 polish.
+- Spacing and layout rhythm: the brand, progress tracker, hero, fields, information cards, and gold actions follow the source order and proportions. All primary actions fit the tested viewport. On Step 3, the secondary `Edit details` action is available after a short scroll because Android system chrome reduces the app-owned height relative to the source canvas; this is expected responsive behavior.
+- Colors and visual tokens: white surfaces, slate text, purple/blue active states, pale borders, mint benefit accents, and gold primary actions are faithful to the light-mode references and existing Broke.AI palette.
+- Image quality and asset fidelity: every supplied dog asset is used. Tight, lossless crops derived from those originals improve subject scale without replacing or redrawing the artwork. The brand and login feature graphics are exact source crops rather than approximated code art.
+- Copy and content: headings, helper copy, field names, progress labels, benefit content, password requirements, account summary, agreement, and actions match the supplied screens. Summary values intentionally use the entered account details.
+- Icons and controls: fields, password visibility controls, progress states, checkbox, back button, and forward actions use consistent Material icons and practical tap targets.
+- Accessibility and responsiveness: inputs expose hints and autofill metadata; password controls have tooltips; content scrolls on shorter displays; no RenderFlex overflow, clipping, locale exception, or Flutter runtime error appeared on the tested emulator.
 
-## Comparison History
+## Comparison history
 
-1. The first device pass found a P2 overlap between the coded headings/body copy and text or objects embedded in the dog illustrations. The hero artwork was moved right, heading width was corrected, and a white-to-transparent readability mask was added behind the text.
-2. The first pass also found a P2 asset-fidelity mismatch because the feature cards used generic Material icons. The rocket, insights clipboard, and receipt illustrations were extracted from the supplied mockups and wired into the cards as real raster assets.
-3. The post-fix captures for all three states were combined and inspected in `qa/onboarding-carousel-comparison.png`; headings, feature art, controls, and persistent actions are now readable and aligned with the references.
+1. First comparison found a P2 login-height issue: the sign-in action was partially below the initial viewport. The hero and login card rhythm were tightened, then the login screen was recaptured with the full action and registration link visible.
+2. Second comparison found P2 registration-height issues: Step 1 and Step 3 pushed primary actions below the initial viewport. Progress, hero, benefit, and account-summary spacing were compacted. Recapture confirms all primary actions are visible.
+3. Third comparison found a P2 mascot-scale mismatch. Lossless subject-aware crops were generated from the four supplied dog assets and wired into the same responsive image slots. Final recaptures show substantially closer source scale and composition.
 
-## Interaction and Runtime Checks
+## Interaction verification
 
-- Native Android launch displays the supplied dog icon instead of the Flutter icon.
-- Flutter displays a branded Broke.AI boot page for a minimum of 900 milliseconds before resolving the session route.
-- Horizontal swipes move through all three onboarding pages and update the active dot.
-- Sign In / Register opens the existing authentication page and can return to onboarding.
-- Try Now was exercised against the live guest endpoint and opened the Guest dashboard.
-- Android runtime logs were checked after launch, carousel navigation, and guest entry; no Flutter exceptions, unhandled exceptions, or locale-formatting errors were present.
+- Onboarding automatically advances every 3 seconds and loops from Slide 3 back to Slide 1.
+- Manual swiping and dot navigation remain available.
+- `Sign In / Register` opens the login screen; back returns to onboarding.
+- `Register` opens Step 1; valid identity details advance to Step 2; valid credentials advance to Step 3.
+- Password visibility, validation, previous-step navigation, terms dialog, agreement checkbox, login request, registration request, and loading/error states are implemented.
+- All 27 Flutter tests pass, `flutter analyze` reports no issues, and the Android debug APK builds successfully.
+- Android logcat was checked after traversing the full flow; no Flutter runtime, locale, or layout-overflow errors were present.
 
-## Follow-up Polish
+## Focused-region comparison
 
-- P3: bundle the exact reference font if pixel-identical typography across Android and iOS becomes a release requirement.
+Additional crops were not required because the four 2568-pixel-wide combined comparisons keep typography, imagery, fields, icons, and actions legible at full-view scale.
+
+## Follow-up polish
+
+- P3: an exact licensed match for the mockup's display font and decorative underline could narrow the remaining optical difference.
 
 final result: passed

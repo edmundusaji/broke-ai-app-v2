@@ -205,12 +205,60 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Save your guest history.'), findsOneWidget);
+    expect(find.text('Save your\nguest history'), findsOneWidget);
     final signInToggle = find.text('Already have an account? Sign in');
     await tester.ensureVisible(signInToggle);
     await tester.tap(signInToggle);
     await tester.pumpAndSettle();
-    expect(find.text('Welcome back.'), findsOneWidget);
+    expect(find.text('Welcome\nback.'), findsOneWidget);
+  });
+
+  testWidgets('registration collects account details across three steps', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionProvider.overrideWith((ref) => _session(isGuest: true)),
+        ],
+        child: const MaterialApp(home: RegisterPage()),
+      ),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('register-full-name')),
+      'Edmund Aji',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('register-email')),
+      'edmund@example.com',
+    );
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.text('Secure your\naccount'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('register-username')),
+      'edmund',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('register-password')),
+      'secret123!',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('register-confirm-password')),
+      'secret123!',
+    );
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.text('You’re all set!'), findsOneWidget);
+    expect(find.text('Edmund Aji'), findsOneWidget);
+    expect(find.text('edmund@example.com'), findsOneWidget);
+    expect(find.text('edmund'), findsOneWidget);
   });
 
   testWidgets('manual edit form includes the backend description', (

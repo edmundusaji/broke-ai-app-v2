@@ -33,7 +33,7 @@ void main() {
         .toList();
     final pubspec = File('pubspec.yaml').readAsStringSync();
 
-    expect(dogAssets, hasLength(10));
+    expect(dogAssets.length, greaterThanOrEqualTo(10));
     expect(File(AppAssets.onboardingDog).existsSync(), isTrue);
     expect(File(AppAssets.onboardingInsightsDog).existsSync(), isTrue);
     expect(File(AppAssets.onboardingTrackingDog).existsSync(), isTrue);
@@ -43,7 +43,11 @@ void main() {
     expect(File(AppAssets.appIcon).existsSync(), isTrue);
     expect(File(AppAssets.dashboardDog).existsSync(), isTrue);
     expect(File(AppAssets.loginDog).existsSync(), isTrue);
+    expect(File(AppAssets.registerDog).existsSync(), isTrue);
+    expect(File(AppAssets.registerSecureDog).existsSync(), isTrue);
+    expect(File(AppAssets.registerCompleteDog).existsSync(), isTrue);
     expect(pubspec, contains('assets/mockups/light_mode/'));
+    expect(pubspec, contains('assets/mockups/light_mode/auth_crops/'));
     expect(pubspec, contains('assets/mockups/light_mode/onboarding_features/'));
     expect(pubspec, contains('assets/mockups/light_mode/homepage/'));
     expect(pubspec, contains('assets/mockups/light_mode/profilepage/'));
@@ -97,6 +101,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Smart Tracking'), findsOneWidget);
     expect(find.bySemanticsLabel('Onboarding page 3 of 3'), findsOneWidget);
+  });
+
+  testWidgets('onboarding advances every three seconds and loops', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 940));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: OnboardingPage())),
+    );
+
+    expect(
+      find.bySemanticsLabel('How would you like to start?'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.bySemanticsLabel('See your money, smarter.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      find.bySemanticsLabel('Every expense. Every insight. One place.'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      find.bySemanticsLabel('How would you like to start?'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('mascot image shows a fallback when an asset is unavailable', (

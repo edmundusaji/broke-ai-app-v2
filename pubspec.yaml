@@ -75,6 +75,7 @@ flutter:
     - assets/logos/over_the_counter/
     - assets/logos/QRIS/
     - assets/mockups/light_mode/
+    - assets/mockups/light_mode/auth_crops/
     - assets/mockups/light_mode/onboarding_features/
     - assets/mockups/light_mode/homepage/
     - assets/mockups/light_mode/profilepage/
