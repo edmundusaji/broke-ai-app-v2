@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'core/app_theme.dart';
 import 'widgets/payment_method_logo.dart';
 
-const _ink = Color(0xff111111);
-const _panel = Color(0xff292720);
-const _cream = Color(0xfffff7e8);
-const _gold = Color(0xffe3b341);
-const _muted = Color(0xffaaa69c);
+const _ink = AppColors.primaryBackground;
+const _panel = AppColors.surfaceCard;
+const _cream = AppColors.textPrimary;
+const _gold = AppColors.primaryAccent;
+const _muted = AppColors.textSecondary;
 
 class PaymentMethodGroup {
   const PaymentMethodGroup({
@@ -155,7 +156,7 @@ class _PaymentMethodPickerState extends State<PaymentMethodPicker> {
       decoration: const BoxDecoration(
         color: _ink,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border(top: BorderSide(color: Color(0xff3d3930))),
+        border: Border(top: BorderSide(color: AppColors.borderSubtle)),
       ),
       child: Column(
         children: [
@@ -164,7 +165,7 @@ class _PaymentMethodPickerState extends State<PaymentMethodPicker> {
             width: 42,
             height: 4,
             decoration: BoxDecoration(
-              color: const Color(0xff5b574e),
+              color: AppColors.borderSubtle,
               borderRadius: BorderRadius.circular(99),
             ),
           ),
@@ -225,11 +226,11 @@ class _PaymentMethodPickerState extends State<PaymentMethodPicker> {
                 fillColor: _panel,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Color(0xff3d3930)),
+                  borderSide: const BorderSide(color: AppColors.borderSubtle),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Color(0xff3d3930)),
+                  borderSide: const BorderSide(color: AppColors.borderSubtle),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -299,10 +300,10 @@ class _PaymentGroupTile extends StatelessWidget {
   Widget build(BuildContext context) => AnimatedContainer(
     duration: const Duration(milliseconds: 180),
     decoration: BoxDecoration(
-      color: const Color(0xff1e1e1e),
+      color: AppColors.surfaceCard,
       borderRadius: BorderRadius.circular(18),
       border: Border.all(
-        color: expanded ? const Color(0xff5d4c24) : const Color(0xff333333),
+        color: expanded ? AppColors.primaryAccent : AppColors.borderSubtle,
       ),
     ),
     child: Column(
@@ -364,7 +365,9 @@ class _PaymentGroupTile extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 11, 14, 11),
                 decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: Color(0xff333333))),
+                  border: Border(
+                    top: BorderSide(color: AppColors.borderSubtle),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -405,7 +408,7 @@ class _MethodMark extends StatelessWidget {
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: const Color(0xff493b1b),
+        color: const Color(0x145b50f6),
         borderRadius: BorderRadius.circular(13),
       ),
       child: Icon(icon, color: _gold, size: 22),

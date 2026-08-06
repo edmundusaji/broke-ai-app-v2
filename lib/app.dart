@@ -7,6 +7,7 @@ import 'pages/home_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/register_page.dart';
 import 'pages/scan_page.dart';
+import 'pages/try_now_page.dart';
 import 'providers/app_providers.dart';
 import 'widgets/manual_transaction_sheet.dart';
 
@@ -34,7 +35,7 @@ class AuthGate extends ConsumerWidget {
         .when(
           loading: () => const Scaffold(
             body: Center(
-              child: CircularProgressIndicator(color: AppColors.gold),
+              child: CircularProgressIndicator(color: AppColors.primaryAccent),
             ),
           ),
           error: (_, _) => const AccountOptionPage(
@@ -67,8 +68,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       floatingActionButton: page == 0
           ? FloatingActionButton(
               tooltip: 'Add manual transaction',
-              backgroundColor: AppColors.gold,
-              foregroundColor: AppColors.ink,
+              backgroundColor: AppColors.primaryAccent,
+              foregroundColor: Colors.white,
               onPressed: () => showModalBottomSheet<void>(
                 context: context,
                 isScrollControlled: true,
@@ -80,12 +81,19 @@ class _AppShellState extends ConsumerState<AppShell> {
           : null,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: AppColors.charcoal,
-          border: Border(top: BorderSide(color: Color(0xff37342d))),
+          color: AppColors.surfaceCard,
+          border: Border(top: BorderSide(color: AppColors.borderSubtle)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x140f172a),
+              blurRadius: 18,
+              offset: Offset(0, -4),
+            ),
+          ],
         ),
         child: NavigationBar(
           backgroundColor: Colors.transparent,
-          indicatorColor: const Color(0xff51401b),
+          indicatorColor: const Color(0x145b50f6),
           selectedIndex: page,
           onDestinationSelected: (index) => setState(() => page = index),
           destinations: const [

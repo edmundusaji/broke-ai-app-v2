@@ -17,7 +17,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('How would you like to start?'), findsOneWidget);
-    expect(find.text('Try Now  >'), findsOneWidget);
+    expect(find.text('Try Now'), findsOneWidget);
     expect(find.text('Sign In / Register'), findsOneWidget);
   });
 
@@ -32,7 +32,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Sign In / Register'));
+    final accountButton = find.text('Sign In / Register');
+    await tester.ensureVisible(accountButton);
+    await tester.tap(accountButton);
     await tester.pumpAndSettle();
     expect(find.text('Welcome back.'), findsOneWidget);
 

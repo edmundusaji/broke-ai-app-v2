@@ -217,8 +217,8 @@ class _ScanPageState extends ConsumerState<ScanPage> {
           FilledButton(
             onPressed: image == null || processing ? null : _scanReceipt,
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.gold,
-              foregroundColor: AppColors.ink,
+              backgroundColor: AppColors.primaryAccent,
+              foregroundColor: Colors.white,
               minimumSize: const Size(0, 54),
             ),
             child: Text(
@@ -242,8 +242,8 @@ class _ScanPageState extends ConsumerState<ScanPage> {
           FilledButton(
             onPressed: processing ? null : _processNotification,
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.gold,
-              foregroundColor: AppColors.ink,
+              backgroundColor: AppColors.primaryAccent,
+              foregroundColor: Colors.white,
               minimumSize: const Size(0, 52),
             ),
             child: const Text('Process with AI'),
@@ -345,10 +345,10 @@ class _TrialBadge extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: count == 0 ? const Color(0xff3b211f) : const Color(0xff493b1b),
+          color: count == 0 ? const Color(0xfffff1f2) : const Color(0xfff0fdfa),
           borderRadius: BorderRadius.circular(99),
           border: Border.all(
-            color: count == 0 ? AppColors.coral : AppColors.gold,
+            color: count == 0 ? AppColors.danger : AppColors.successMint,
           ),
         ),
         child: Text(
@@ -356,7 +356,7 @@ class _TrialBadge extends StatelessWidget {
               ? 'No Free Scans Left'
               : '$count Free Scan${count == 1 ? '' : 's'} Left',
           style: TextStyle(
-            color: count == 0 ? AppColors.coral : AppColors.cream,
+            color: count == 0 ? AppColors.danger : AppColors.textPrimary,
             fontWeight: FontWeight.w700,
           ),
         ),

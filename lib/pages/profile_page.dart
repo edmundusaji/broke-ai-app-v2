@@ -53,7 +53,7 @@ class ProfilePage extends ConsumerWidget {
           if (session?.isGuest == true) ...[
             const SizedBox(height: 16),
             SurfaceCard(
-              tint: const Color(0xff332a18),
+              tint: const Color(0xfff5f3ff),
               child: Row(
                 children: [
                   const Icon(Icons.auto_awesome_rounded, color: AppColors.gold),

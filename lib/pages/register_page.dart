@@ -2,127 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_assets.dart';
 import '../core/app_theme.dart';
 import '../providers/app_providers.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/mascot_image.dart';
 import '../widgets/surface_card.dart';
-
-class AccountOptionPage extends ConsumerStatefulWidget {
-  const AccountOptionPage({super.key, this.startupError});
-  final String? startupError;
-
-  @override
-  ConsumerState<AccountOptionPage> createState() => _AccountOptionPageState();
-}
-
-class _AccountOptionPageState extends ConsumerState<AccountOptionPage> {
-  bool loading = false;
-  String? error;
-
-  Future<void> _tryNow() async {
-    setState(() {
-      loading = true;
-      error = null;
-    });
-    try {
-      final session = await ref.read(apiProvider).guestLogin();
-      await ref.read(sessionStoreProvider).save(session);
-      ref.read(showAuthProvider.notifier).state = false;
-      ref.invalidate(sessionProvider);
-    } catch (_) {
-      if (mounted) {
-        setState(() => error = 'Unable to start Guest Mode. Please try again.');
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(22),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: SurfaceCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const BrandMark(),
-                  const SizedBox(height: 28),
-                  const Text(
-                    'How would you like to start?',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 27, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Explore manual expense tracking instantly, or sign in to unlock every AI feature.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.muted, height: 1.45),
-                  ),
-                  const SizedBox(height: 22),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.panel,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xff3d3930)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(
-                          Icons.rocket_launch_outlined,
-                          color: AppColors.gold,
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Guest Mode includes the dashboard, history, manual transactions, and 2 AI trials.',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if ((error ?? widget.startupError) != null) ...[
-                    const SizedBox(height: 14),
-                    Text(
-                      (error ?? widget.startupError)!,
-                      style: const TextStyle(color: AppColors.coral),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: loading ? null : _tryNow,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: AppColors.ink,
-                      minimumSize: const Size(0, 54),
-                    ),
-                    child: Text(
-                      loading ? 'Starting Guest Mode...' : 'Try Now  >',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton(
-                    onPressed: loading
-                        ? null
-                        : () =>
-                              ref.read(showAuthProvider.notifier).state = true,
-                    style: secondaryButtonStyle(),
-                    child: const Text('Sign In / Register'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key, this.error});
@@ -228,7 +113,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       ),
                     ),
                     const BrandMark(),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
+                    MascotImage(
+                      asset: register
+                          ? AppAssets.registerDog
+                          : AppAssets.loginDog,
+                      height: 170,
+                      borderRadius: 20,
+                      alignment: const Alignment(.25, -.15),
+                    ),
+                    const SizedBox(height: 20),
                     Text(
                       register
                           ? upgradingGuest
@@ -272,8 +166,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     FilledButton(
                       onPressed: loading ? null : _submit,
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.gold,
-                        foregroundColor: AppColors.ink,
+                        backgroundColor: AppColors.primaryAccent,
+                        foregroundColor: Colors.white,
                         minimumSize: const Size(0, 54),
                       ),
                       child: Text(

@@ -16,12 +16,12 @@ class SurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: tint ?? AppColors.charcoal,
-    elevation: 5,
-    shadowColor: Colors.black87,
+    color: tint ?? AppColors.surfaceCard,
+    elevation: 1.5,
+    shadowColor: const Color(0x1a0f172a),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(22),
-      side: const BorderSide(color: Color(0xff302e29)),
+      borderRadius: BorderRadius.circular(20),
+      side: const BorderSide(color: AppColors.borderSubtle),
     ),
     clipBehavior: Clip.antiAlias,
     child: Padding(padding: padding, child: child),

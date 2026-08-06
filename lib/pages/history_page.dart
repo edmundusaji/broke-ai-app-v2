@@ -17,7 +17,7 @@ class HistoryPage extends ConsumerWidget {
     final dashboard = ref.watch(dashboardProvider);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.primaryBackground,
         leading: const BackButton(),
         title: const Text('Transaction history'),
         actions: const [MonthPicker()],

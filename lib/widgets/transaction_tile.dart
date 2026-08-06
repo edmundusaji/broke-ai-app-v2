@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../models/transaction.dart';
 import '../utils/formatters.dart';
-import '../utils/transaction_visuals.dart';
 import 'payment_method_logo.dart';
 
 class TransactionTile extends StatelessWidget {
@@ -40,8 +39,8 @@ class TransactionTile extends StatelessWidget {
           trailing ??
           Text(
             '-${money(transaction.amount ?? 0)}',
-            style: TextStyle(
-              color: categoryColor(category),
+            style: const TextStyle(
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
               fontSize: 12,
             ),

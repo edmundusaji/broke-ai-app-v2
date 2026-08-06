@@ -280,8 +280,8 @@ class _ManualTransactionSheetState
             FilledButton.icon(
               onPressed: saving ? null : _submit,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: AppColors.ink,
+                backgroundColor: AppColors.primaryAccent,
+                foregroundColor: Colors.white,
                 minimumSize: const Size(0, 52),
               ),
               icon: saving
@@ -289,7 +289,7 @@ class _ManualTransactionSheetState
                       dimension: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.ink,
+                        color: Colors.white,
                       ),
                     )
                   : Icon(editing ? Icons.save_outlined : Icons.add_rounded),

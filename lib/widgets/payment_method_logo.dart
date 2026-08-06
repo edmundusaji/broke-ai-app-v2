@@ -18,7 +18,7 @@ class PaymentMethodLogo extends StatelessWidget {
     final asset = paymentMethodLogoAsset(paymentMethod);
     final fallback = Icon(
       Icons.account_balance_wallet_rounded,
-      color: AppColors.ink,
+      color: AppColors.primaryAccent,
       size: size * .48,
     );
     return Container(
@@ -26,7 +26,8 @@ class PaymentMethodLogo extends StatelessWidget {
       height: size,
       padding: EdgeInsets.all(asset == null ? 0 : size * .12),
       decoration: BoxDecoration(
-        color: asset == null ? AppColors.gold : Colors.white,
+        color: asset == null ? const Color(0x145b50f6) : Colors.white,
+        border: Border.all(color: AppColors.borderSubtle),
         borderRadius: BorderRadius.circular(size * .3),
       ),
       alignment: Alignment.center,

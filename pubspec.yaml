@@ -73,6 +73,10 @@ flutter:
     - assets/logos/internet_banking/
     - assets/logos/over_the_counter/
     - assets/logos/QRIS/
+    - assets/mockups/light_mode/
+    - assets/mockups/light_mode/homepage/
+    - assets/mockups/light_mode/profilepage/
+    - assets/mockups/light_mode/scanpage/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

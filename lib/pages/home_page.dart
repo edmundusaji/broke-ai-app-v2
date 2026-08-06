@@ -2,11 +2,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_assets.dart';
 import '../core/app_theme.dart';
 import '../providers/app_providers.dart';
 import '../utils/formatters.dart';
 import '../utils/transaction_visuals.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/mascot_image.dart';
 import '../widgets/surface_card.dart';
 import '../widgets/transaction_tile.dart';
 import 'history_page.dart';
@@ -54,38 +56,7 @@ class HomePage extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 22),
-              SurfaceCard(
-                tint: AppColors.goldDark,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('This month\'s expense'),
-                          const SizedBox(height: 8),
-                          Text(
-                            money(data.summary.total),
-                            style: const TextStyle(
-                              fontSize: 27,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Synced',
-                            style: TextStyle(color: AppColors.cream),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const HeroIcon(
-                      icon: Icons.account_balance_wallet_rounded,
-                      size: 76,
-                    ),
-                  ],
-                ),
-              ),
+              _ExpenseSummaryCard(data: data),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -184,14 +155,29 @@ class _SpendingChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (data.summary.categories.isEmpty || data.summary.total <= 0) {
-      return const SizedBox(
-        height: 180,
-        child: Center(
-          child: Text(
-            'No transactions yet',
-            style: TextStyle(color: AppColors.muted),
+      return const Column(
+        children: [
+          MascotImage(
+            asset: AppAssets.dashboardDog,
+            height: 125,
+            borderRadius: 18,
+            alignment: Alignment(0, -.3),
           ),
-        ),
+          SizedBox(height: 12),
+          Text(
+            'No transactions yet',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Add your first expense to see spending insights.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ],
       );
     }
     return Column(
@@ -242,6 +228,62 @@ class _SpendingChart extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ExpenseSummaryCard extends StatelessWidget {
+  const _ExpenseSummaryCard({required this.data});
+
+  final DashboardData data;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [AppColors.primaryAccent, AppColors.secondaryAccent],
+      ),
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x335b50f6),
+          blurRadius: 24,
+          offset: Offset(0, 10),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This month\'s expenses',
+                style: TextStyle(color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                money(data.summary.total),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${data.history.length} transaction${data.history.length == 1 ? '' : 's'}',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+        const HeroIcon(icon: Icons.account_balance_wallet_rounded, size: 76),
+      ],
+    ),
+  );
 }
 
 class _HomeError extends ConsumerWidget {
