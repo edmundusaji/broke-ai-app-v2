@@ -79,17 +79,33 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       body: IndexedStack(index: page, children: pages),
       floatingActionButton: page == 0
-          ? FloatingActionButton(
-              tooltip: 'Add manual transaction',
-              backgroundColor: AppColors.primaryAccent,
-              foregroundColor: Colors.white,
-              onPressed: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (_) => const ManualTransactionSheet(),
+          ? Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Color(0xff8a4df8), Color(0xff278df5)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x405b50f6),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.add_rounded),
+              child: FloatingActionButton(
+                tooltip: 'Add manual transaction',
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => const ManualTransactionSheet(),
+                ),
+                child: const Icon(Icons.add_rounded, size: 29),
+              ),
             )
           : null,
       bottomNavigationBar: Container(

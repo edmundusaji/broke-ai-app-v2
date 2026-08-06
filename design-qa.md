@@ -1,59 +1,59 @@
-# Authentication and Onboarding Design QA
+# Homepage and Manual Transaction Design QA
 
 ## Comparison target
 
 - Source visual truth:
-  - `assets/mockups/light_mode/loginPage.png`
-  - `assets/mockups/light_mode/registerPage1.png`
-  - `assets/mockups/light_mode/registerPage2.png`
-  - `assets/mockups/light_mode/registerPage3.png`
+  - `assets/mockups/light_mode/homepage/homepage.png`
+  - `assets/mockups/light_mode/homepage/manual.png`
+  - `assets/mockups/light_mode/homepage/manual-category.png`
+  - `assets/mockups/light_mode/homepage/payment-method.png`
 - Rendered implementation:
-  - `qa/implementation-login.png`
-  - `qa/implementation-register-1.png`
-  - `qa/implementation-register-2.png`
-  - `qa/implementation-register-3.png`
+  - `qa/homepage-final.png`
+  - `qa/manual-final.png`
+  - `qa/category-final.png`
+  - `qa/payment-final.png`
 - Combined comparison evidence:
-  - `qa/comparison-login.png`
-  - `qa/comparison-register-1.png`
-  - `qa/comparison-register-2.png`
-  - `qa/comparison-register-3.png`
-- Device viewport: 1280 x 2856 physical pixels, 426.67 x 952 logical pixels, device pixel ratio 3.
-- Normalization: implementation screenshots were cropped from y=156 through y=2784 to remove Android-owned status/navigation bars. Reference images were resized to 1280 physical pixels wide and compared beside the 1280-pixel-wide implementation crop.
-- States: signed-out login, registration Step 1, registration Step 2, and registration Step 3 with realistic completed account data.
+  - `qa/comparison-home.png`
+  - `qa/comparison-manual.png`
+  - `qa/comparison-category.png`
+  - `qa/comparison-payment.png`
+- Device viewport: 1280 x 2856 physical pixels, approximately 426.7 x 952 logical pixels at 480 dpi (device pixel ratio 3).
+- Normalization: each reference and implementation was aspect-fit into an equal 700 x 1450 comparison panel. The homepage comparison uses the populated right-hand phone from the two-state source board. System chrome remains visible in both source and implementation because it is part of the supplied screen compositions.
+- States: authenticated populated dashboard, new manual transaction, category picker, and collapsed payment-method catalog.
 
 ## Findings
 
 - No actionable P0, P1, or P2 differences remain.
-- Fonts and typography: the implementation preserves the mockups' heavy dark-slate display hierarchy, muted body copy, clear field labels, and purple active labels. Flutter's platform font has a slightly heavier optical appearance than the source typeface; this is acceptable P3 polish.
-- Spacing and layout rhythm: the brand, progress tracker, hero, fields, information cards, and gold actions follow the source order and proportions. All primary actions fit the tested viewport. On Step 3, the secondary `Edit details` action is available after a short scroll because Android system chrome reduces the app-owned height relative to the source canvas; this is expected responsive behavior.
-- Colors and visual tokens: white surfaces, slate text, purple/blue active states, pale borders, mint benefit accents, and gold primary actions are faithful to the light-mode references and existing Broke.AI palette.
-- Image quality and asset fidelity: every supplied dog asset is used. Tight, lossless crops derived from those originals improve subject scale without replacing or redrawing the artwork. The brand and login feature graphics are exact source crops rather than approximated code art.
-- Copy and content: headings, helper copy, field names, progress labels, benefit content, password requirements, account summary, agreement, and actions match the supplied screens. Summary values intentionally use the entered account details.
-- Icons and controls: fields, password visibility controls, progress states, checkbox, back button, and forward actions use consistent Material icons and practical tap targets.
-- Accessibility and responsiveness: inputs expose hints and autofill metadata; password controls have tooltips; content scrolls on shorter displays; no RenderFlex overflow, clipping, locale exception, or Flutter runtime error appeared on the tested emulator.
+- Fonts and typography: the implementation preserves the heavy dark-slate headings, muted supporting copy, bold transaction/category hierarchy, and compact labels from the references. Flutter's platform typeface is slightly wider than the mockup font; responsive wrapping is limited to supporting text and is acceptable P3 polish.
+- Spacing and layout rhythm: the greeting, gradient expense summary, metric cards, spending card, history action, transaction surface, layered sheet headers, fields, and rounded group tiles follow the source order and rhythm. Shorter devices scroll the transaction list and lower picker groups instead of shrinking tap targets.
+- Colors and visual tokens: white surfaces, off-white page background, purple-blue gradients, pale borders, soft shadows, teal/orange category accents, and dark slate text match the light-mode design direction and existing Broke.AI theme.
+- Image quality and asset fidelity: the supplied homepage, manual, and category dog assets are rendered directly. The category/payment header mascot uses a clipped scale of the supplied asset so the character matches the source prominence without recreating it.
+- Copy and content: visible fixed copy matches the references. Dynamic totals, month, user name, counts, category percentages, payment methods, and transactions intentionally come from the current session/API rather than mock data.
+- Icons and controls: notification, wallet, date, receipt, category, history, navigation, close, search, accordion, and action icons use consistent Material symbols with practical tap targets. Payment previews and recent/history tiles retain the real local payment-method logo assets.
+- Accessibility and responsiveness: all form fields, close controls, history action, picker rows, search, and FAB remain interactive. Sheets are scrollable, keyboard insets are respected, text truncation is bounded, and no overflow or clipped persistent control was observed.
 
 ## Comparison history
 
-1. First comparison found a P2 login-height issue: the sign-in action was partially below the initial viewport. The hero and login card rhythm were tightened, then the login screen was recaptured with the full action and registration link visible.
-2. Second comparison found P2 registration-height issues: Step 1 and Step 3 pushed primary actions below the initial viewport. Progress, hero, benefit, and account-summary spacing were compacted. Recapture confirms all primary actions are visible.
-3. Third comparison found a P2 mascot-scale mismatch. Lossless subject-aware crops were generated from the four supplied dog assets and wired into the same responsive image slots. Final recaptures show substantially closer source scale and composition.
+1. Initial emulator capture found a P2 payment-sheet title wrap and a P2 mascot scale mismatch in the category/payment headers. The payment header was rebuilt as a responsive stack with a single-line title, and the supplied mascot was scaled within a clipped slot.
+2. Initial manual capture showed the amount as a bare `0` rather than the source's `Rp 0`. The new-entry controller now initializes to `0`, preserving the currency prefix while validation still rejects zero on submit.
+3. Post-fix captures show the payment title on one line, larger source-faithful mascots, the `Rp 0` amount state, and no visual overflow. The combined comparisons contain no remaining actionable P0/P1/P2 mismatch.
 
 ## Interaction verification
 
-- Onboarding automatically advances every 3 seconds and loops from Slide 3 back to Slide 1.
-- Manual swiping and dot navigation remain available.
-- `Sign In / Register` opens the login screen; back returns to onboarding.
-- `Register` opens Step 1; valid identity details advance to Step 2; valid credentials advance to Step 3.
-- Password visibility, validation, previous-step navigation, terms dialog, agreement checkbox, login request, registration request, and loading/error states are implemented.
-- All 27 Flutter tests pass, `flutter analyze` reports no issues, and the Android debug APK builds successfully.
-- Android logcat was checked after traversing the full flow; no Flutter runtime, locale, or layout-overflow errors were present.
+- Dashboard refresh, month navigation, spending report/history navigation, bottom navigation, and FAB work with the existing providers and API data.
+- Recent activity remains sourced from `/api/v1/expense/recent`, capped at five items, and displays payment logos with bold category plus description/date beneath.
+- Manual date, amount, category, optional description, and payment method fields are interactive; create and edit continue to use the existing backend request mapping.
+- Category selection returns one of the seven allowed values.
+- Payment search filters across all nine groups in real time; groups expand/collapse and return the selected payment method.
+- `flutter analyze` reports no issues, all 27 Flutter tests pass, and the Android debug APK builds successfully.
 
 ## Focused-region comparison
 
-Additional crops were not required because the four 2568-pixel-wide combined comparisons keep typography, imagery, fields, icons, and actions legible at full-view scale.
+Separate crops were not required because each combined 1440 x 1530 comparison keeps the sheet headers, typography, mascot assets, form fields, payment logos, tiles, and primary actions legible at full-view scale.
 
 ## Follow-up polish
 
-- P3: an exact licensed match for the mockup's display font and decorative underline could narrow the remaining optical difference.
+- P3: an exact licensed match for the mockups' display font would further narrow small optical width differences.
+- P3: the design's decorative category thumbnails are not separate supplied assets, so the implementation uses the closest category icons while retaining all supplied mascot and payment-logo imagery.
 
 final result: passed

@@ -23,17 +23,21 @@ class TransactionTile extends StatelessWidget {
     final description = transaction.description?.trim();
     return ListTile(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       leading: PaymentMethodLogo(paymentMethod: transaction.paymentMethod),
       title: Text(
         category,
-        style: const TextStyle(fontWeight: FontWeight.w700),
+        style: const TextStyle(fontWeight: FontWeight.w800),
       ),
       subtitle: Text(
-        '${description?.isNotEmpty == true ? description : 'No description'} • ${shortDate(transaction.date)}',
+        '${description?.isNotEmpty == true ? description : 'No description'} · ${shortDate(transaction.date)}',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: AppColors.muted, height: 1.3),
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          height: 1.3,
+          fontSize: 12.5,
+        ),
       ),
       trailing:
           trailing ??
@@ -42,7 +46,7 @@ class TransactionTile extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
-              fontSize: 12,
+              fontSize: 12.5,
             ),
           ),
     );

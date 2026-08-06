@@ -27,4 +27,6 @@ abstract final class AppAssets {
   static const registerCompleteDog =
       'assets/mockups/light_mode/auth_crops/register-step-3-dog.png';
   static const manualDog = 'assets/mockups/light_mode/homepage/manual-dog.png';
+  static const manualCategoryDog =
+      'assets/mockups/light_mode/homepage/manual-category-dog.png';
 }
