@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_theme.dart';
+import 'pages/app_boot_page.dart';
 import 'pages/history_page.dart';
 import 'pages/home_page.dart';
+import 'pages/onboarding_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/register_page.dart';
 import 'pages/scan_page.dart';
-import 'pages/try_now_page.dart';
 import 'providers/app_providers.dart';
 import 'widgets/manual_transaction_sheet.dart';
 
@@ -24,27 +25,39 @@ class BrokeAiApp extends StatelessWidget {
   );
 }
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  bool _minimumBootTimeElapsed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _minimumBootTimeElapsed = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_minimumBootTimeElapsed) return const AppBootPage();
     final showAuth = ref.watch(showAuthProvider);
     return ref
         .watch(sessionProvider)
         .when(
-          loading: () => const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: AppColors.primaryAccent),
-            ),
-          ),
-          error: (_, _) => const AccountOptionPage(
+          loading: () => const AppBootPage(),
+          error: (_, _) => const OnboardingPage(
             startupError: 'Unable to restore your session. Please try again.',
           ),
           data: (session) {
             if (showAuth) return const RegisterPage();
             if (session != null) return const AppShell();
-            return const AccountOptionPage();
+            return const OnboardingPage();
           },
         );
   }

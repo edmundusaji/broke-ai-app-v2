@@ -2,8 +2,11 @@ import 'dart:io';
 
 import 'package:broke_ai_app/core/app_assets.dart';
 import 'package:broke_ai_app/core/app_theme.dart';
+import 'package:broke_ai_app/pages/app_boot_page.dart';
+import 'package:broke_ai_app/pages/onboarding_page.dart';
 import 'package:broke_ai_app/widgets/mascot_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -32,12 +35,68 @@ void main() {
 
     expect(dogAssets, hasLength(10));
     expect(File(AppAssets.onboardingDog).existsSync(), isTrue);
+    expect(File(AppAssets.onboardingInsightsDog).existsSync(), isTrue);
+    expect(File(AppAssets.onboardingTrackingDog).existsSync(), isTrue);
+    expect(File(AppAssets.onboardingGuestFeature).existsSync(), isTrue);
+    expect(File(AppAssets.onboardingInsightsFeature).existsSync(), isTrue);
+    expect(File(AppAssets.onboardingTrackingFeature).existsSync(), isTrue);
+    expect(File(AppAssets.appIcon).existsSync(), isTrue);
     expect(File(AppAssets.dashboardDog).existsSync(), isTrue);
     expect(File(AppAssets.loginDog).existsSync(), isTrue);
     expect(pubspec, contains('assets/mockups/light_mode/'));
+    expect(pubspec, contains('assets/mockups/light_mode/onboarding_features/'));
     expect(pubspec, contains('assets/mockups/light_mode/homepage/'));
     expect(pubspec, contains('assets/mockups/light_mode/profilepage/'));
     expect(pubspec, contains('assets/mockups/light_mode/scanpage/'));
+    expect(pubspec, contains('assets/app-icon/icon-2.png'));
+    expect(
+      File(
+        'android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
+      ).lengthSync(),
+      greaterThan(10000),
+    );
+    expect(
+      File(
+        'ios/Runner/Assets.xcassets/AppIcon.appiconset/'
+        'Icon-App-1024x1024@1x.png',
+      ).existsSync(),
+      isTrue,
+    );
+  });
+
+  testWidgets('boot page renders the Broke.AI app icon', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: AppBootPage()));
+
+    expect(find.text('BROKE.AI'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName == AppAssets.appIcon,
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('onboarding carousel exposes all three stories', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: OnboardingPage())),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Guest Mode'), findsOneWidget);
+    expect(find.bySemanticsLabel('Onboarding page 1 of 3'), findsOneWidget);
+
+    await tester.drag(find.byType(PageView), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Smarter Insights'), findsOneWidget);
+    expect(find.bySemanticsLabel('Onboarding page 2 of 3'), findsOneWidget);
+
+    await tester.drag(find.byType(PageView), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Smart Tracking'), findsOneWidget);
+    expect(find.bySemanticsLabel('Onboarding page 3 of 3'), findsOneWidget);
   });
 
   testWidgets('mascot image shows a fallback when an asset is unavailable', (

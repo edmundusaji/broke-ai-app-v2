@@ -1,45 +1,51 @@
-# Light Mode Design QA
+# App Icon, Boot, and Onboarding Design QA
 
 ## Evidence
 
 - Source visual truth:
+  - `assets/app-icon/icon-2.png` (1254 x 1254 px)
   - `assets/mockups/light_mode/onboardingPage1.png` (941 x 1672 px)
-  - `assets/mockups/light_mode/homepage/homepage.png` (851 x 1847 px design board)
+  - `assets/mockups/light_mode/onboardingPage2.png` (941 x 1672 px)
+  - `assets/mockups/light_mode/onboardingPage3.png` (853 x 1844 px)
 - Rendered implementation:
-  - `qa/implementation-welcome-final.png` (1280 x 2856 px)
-  - `qa/implementation-dashboard.png` (1280 x 2856 px)
-- Combined comparison evidence:
-  - `qa/welcome-comparison.png`
-  - `qa/dashboard-comparison.png`
-- Device viewport: Android emulator, 1280 x 2856 physical pixels, 426.67 x 952 logical pixels, device pixel ratio 3.0.
-- State: clean unauthenticated launch for Welcome; live guest login with an empty transaction history for Dashboard.
-- Normalization: source and implementation captures were fitted proportionally into equal-height comparison panels. The source mockups use a shorter framed-device ratio, while the implementation uses the emulator's taller unframed viewport. Device chrome and the resulting extra vertical whitespace were not scored as product-layout defects.
-- Focused comparison: not required. Typography, buttons, mascot crops, card edges, navigation, and empty states remain readable in the full-resolution combined comparisons.
+  - `qa/implementation-native-splash.png` (1280 x 2856 px)
+  - `qa/implementation-flutter-boot.png` (1280 x 2856 px)
+  - `qa/implementation-onboarding-1.png` (1280 x 2856 px)
+  - `qa/implementation-onboarding-2.png` (1280 x 2856 px)
+  - `qa/implementation-onboarding-3.png` (1280 x 2856 px)
+- Full-view comparison evidence: `qa/onboarding-carousel-comparison.png`.
+- Device viewport: Android 17 emulator, 1280 x 2856 physical pixels, 426.67 x 952 logical pixels, device pixel ratio 3.0.
+- State: clean app data, signed out, onboarding pages 1 through 3.
+- Normalization: each source and implementation pair was proportionally fitted into an 800 x 1020 comparison panel. The references include different decorative device frames, while the implementation capture is the unframed Android app viewport; system chrome and frame-only differences were not scored as app-content defects.
+- Focused comparison: a separate crop was not needed because the high-resolution three-row comparison keeps the headings, feature illustrations, dots, buttons, borders, and copy readable. The native and Flutter boot states were inspected independently at full resolution.
 
 ## Findings
 
 - No actionable P0, P1, or P2 differences remain.
-- Fonts and typography: the implementation preserves the mockup's bold display hierarchy and readable secondary copy. Platform font fallback differs slightly from the rendered design-board typeface but does not change wrapping or hierarchy.
-- Spacing and layout rhythm: content follows the reference's stacked entry flow and card-based dashboard. The implementation adds the requested Broke.AI brand lockup and uses the taller emulator viewport without clipping or overflow.
-- Colors and visual tokens: the implementation intentionally replaces the mockup's gold CTA with the explicitly requested electric-purple to royal-blue gradient. Background, surface, text, border, success, and highlight colors use the requested light-mode tokens.
-- Image quality and asset fidelity: local dog assets render sharply with rounded clipping and no side overflow. Missing assets fall back to a semantic pet icon instead of breaking layout.
-- Copy and content: Welcome, Guest Mode, Try Now, Sign In/Register, dashboard summaries, spending overview, history, and empty-state text are present and readable.
+- Fonts and typography: the implementation preserves the references' heavy display hierarchy, blue highlighted final line, compact body copy, and bold CTA labels without clipping. The platform font fallback has a small optical difference from the rendered mockup font but keeps the intended wrapping and hierarchy.
+- Spacing and layout rhythm: all three pages retain the same hero, feature card, three-dot indicator, primary CTA, and secondary CTA order. The layout adapts the shorter framed references to the emulator's taller viewport without hiding controls or requiring a scroll to reach the main actions.
+- Colors and visual tokens: the off-white background, dark slate text, electric blue highlight, soft lavender borders, gold active dot, gold gradient CTA, and blue outlined secondary action follow the selected references.
+- Image quality and asset fidelity: all three supplied dog assets are rendered at high quality. The rocket, analytics clipboard, and receipt illustrations are extracted from the supplied reference art and used directly rather than approximated with generic icons. The supplied app icon is used by the native splash, Flutter boot page, and platform launcher assets.
+- Copy and content: the three headings, explanatory text, Guest Mode, Smarter Insights, Smart Tracking, Try Now, and Sign In / Register content match the reference intent and remain readable.
+- Accessibility and behavior: pages expose semantic page numbers and heading labels; dots and cards are tappable; swipe navigation works; and both CTAs retain practical mobile tap targets.
 
 ## Comparison History
 
-1. Initial device capture found a P2 mascot-container mismatch: the white dog image was surrounded by dark side panels from the previous theme token. The mascot fallback/container background was changed to the white surface token and the app was rebuilt.
-2. The initial CTA icon placement was also tightened so the arrow aligns to the right edge as in the reference. The rebuilt capture is recorded in `qa/implementation-welcome-final.png` and the post-fix side-by-side evidence is `qa/welcome-comparison.png`.
-3. The live Guest Mode flow was exercised to capture the Dashboard. The resulting light cards, gradient summary, white navigation, local empty-state mascot, History action, and floating add button are recorded in `qa/dashboard-comparison.png`.
+1. The first device pass found a P2 overlap between the coded headings/body copy and text or objects embedded in the dog illustrations. The hero artwork was moved right, heading width was corrected, and a white-to-transparent readability mask was added behind the text.
+2. The first pass also found a P2 asset-fidelity mismatch because the feature cards used generic Material icons. The rocket, insights clipboard, and receipt illustrations were extracted from the supplied mockups and wired into the cards as real raster assets.
+3. The post-fix captures for all three states were combined and inspected in `qa/onboarding-carousel-comparison.png`; headings, feature art, controls, and persistent actions are now readable and aligned with the references.
 
 ## Interaction and Runtime Checks
 
-- Sign In/Register opens the authentication screen and its Back control remains available.
-- Try Now creates a guest session and opens the Dashboard.
-- Dashboard bottom navigation, History action, and manual-entry floating button are exposed as interactive controls.
-- Android runtime logs were checked after both routes; no Flutter exceptions, unhandled exceptions, or locale-formatting errors were present.
+- Native Android launch displays the supplied dog icon instead of the Flutter icon.
+- Flutter displays a branded Broke.AI boot page for a minimum of 900 milliseconds before resolving the session route.
+- Horizontal swipes move through all three onboarding pages and update the active dot.
+- Sign In / Register opens the existing authentication page and can return to onboarding.
+- Try Now was exercised against the live guest endpoint and opened the Guest dashboard.
+- Android runtime logs were checked after launch, carousel navigation, and guest entry; no Flutter exceptions, unhandled exceptions, or locale-formatting errors were present.
 
 ## Follow-up Polish
 
-- P3: if exact reference typography becomes a requirement, bundle the source design's font family and verify it on both Android and iOS.
+- P3: bundle the exact reference font if pixel-identical typography across Android and iOS becomes a release requirement.
 
 final result: passed

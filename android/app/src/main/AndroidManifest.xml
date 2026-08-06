@@ -3,7 +3,7 @@
 
     <application
         android:usesCleartextTraffic="true"
-        android:label="broke_ai_app"
+        android:label="Broke.AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

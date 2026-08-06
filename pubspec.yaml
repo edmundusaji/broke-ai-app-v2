@@ -65,6 +65,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/app-icon/icon-2.png
     - assets/logos/bank_transfer/
     - assets/logos/cardless_credit/
     - assets/logos/credit_debit/
@@ -74,6 +75,7 @@ flutter:
     - assets/logos/over_the_counter/
     - assets/logos/QRIS/
     - assets/mockups/light_mode/
+    - assets/mockups/light_mode/onboarding_features/
     - assets/mockups/light_mode/homepage/
     - assets/mockups/light_mode/profilepage/
     - assets/mockups/light_mode/scanpage/
