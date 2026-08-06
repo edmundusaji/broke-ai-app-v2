@@ -62,7 +62,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
         );
       }
     } on GuestAiTrialLimitException {
-      _setRemainingTrials(0);
+      await _setRemainingTrials(0);
       if (mounted) await _showGuestLimit();
     } catch (_) {
       await _queueOffline('receipt', image!.path);
@@ -89,7 +89,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
         setState(() {});
       }
     } on GuestAiTrialLimitException {
-      _setRemainingTrials(0);
+      await _setRemainingTrials(0);
       if (mounted) await _showGuestLimit();
     } catch (_) {
       await _queueOffline('notification', text);
@@ -118,19 +118,19 @@ class _ScanPageState extends ConsumerState<ScanPage> {
   Future<void> _consumeAndRefreshTrial() async {
     if (ref.read(sessionProvider).value?.isGuest != true) return;
     final current = ref.read(remainingAiTrialsProvider);
-    if (current != null) _setRemainingTrials(current - 1);
+    if (current != null) await _setRemainingTrials(current - 1);
     try {
       final count = await ref.read(apiProvider).remainingAiTrials();
-      if (mounted) _setRemainingTrials(count);
+      if (mounted) await _setRemainingTrials(count);
     } catch (_) {
       // Preserve the safe optimistic value until another refresh succeeds.
     }
   }
 
-  void _setRemainingTrials(int value) {
+  Future<void> _setRemainingTrials(int value) async {
     final count = value.clamp(0, 2);
     ref.read(remainingAiTrialsProvider.notifier).state = count;
-    ref.read(sessionStoreProvider).updateActiveGuestTrials(count);
+    await ref.read(sessionStoreProvider).updateActiveGuestTrials(count);
   }
 
   Future<void> _showGuestLimit() async {

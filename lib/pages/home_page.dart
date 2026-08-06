@@ -457,15 +457,8 @@ class _RecentActivityCard extends StatelessWidget {
         : Column(
             children: [
               ...transactions.asMap().entries.map(
-                (entry) => Column(
-                  children: [
-                    TransactionTile(transaction: entry.value),
-                    if (entry.key != transactions.length - 1)
-                      const Divider(height: 1, indent: 70, endIndent: 16),
-                  ],
-                ),
+                (entry) => TransactionTile(transaction: entry.value),
               ),
-              const Divider(height: 1),
               InkWell(
                 onTap: onViewAll,
                 child: const Padding(

@@ -56,6 +56,8 @@ class ApiClient {
   }
 
   Future<Session> guestLogin() async {
+    final existing = await _sessions.read();
+    if (existing?.isGuest == true) return existing!;
     final response = await _dio.post('${await _base}auth/guest-login');
     return _sessionFromResponse(response.data as Map<String, dynamic>);
   }

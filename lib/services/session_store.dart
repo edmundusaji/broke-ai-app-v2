@@ -11,6 +11,9 @@ class SessionStore {
   static const _key = 'session';
   final FlutterSecureStorage _storage;
   Session? _activeGuestSession;
+  bool _guestEntryConfirmed = false;
+
+  bool get guestEntryConfirmed => _guestEntryConfirmed;
 
   Future<Session?> read() async {
     final guest = _activeGuestSession;
@@ -24,7 +27,10 @@ class SessionStore {
       if (raw == null) return null;
       final json = jsonDecode(raw) as Map<String, dynamic>;
       final session = Session.fromJson(json);
-      if (!session.isGuest && session.valid) return session;
+      if (session.valid) {
+        if (session.isGuest) _activeGuestSession = session;
+        return session;
+      }
     } catch (_) {
       // Invalid legacy storage should fall back to the signed-out route.
     }
@@ -35,25 +41,38 @@ class SessionStore {
   Future<void> save(Session session) async {
     if (session.isGuest) {
       _activeGuestSession = session;
-      await _deleteIgnoringFailure();
+      _guestEntryConfirmed = true;
+      await _writeIgnoringFailure(session);
       return;
     }
 
     _activeGuestSession = null;
-    await _storage.write(key: _key, value: jsonEncode(session.toJson()));
+    _guestEntryConfirmed = false;
+    await _writeIgnoringFailure(session);
   }
 
-  void updateActiveGuestTrials(int remainingTrials) {
+  Future<void> updateActiveGuestTrials(int remainingTrials) async {
     final session = _activeGuestSession;
     if (session == null || !session.isGuest) return;
-    _activeGuestSession = session.copyWith(
+    final updated = session.copyWith(
       remainingAiTrials: remainingTrials.clamp(0, 2),
     );
+    _activeGuestSession = updated;
+    await _writeIgnoringFailure(updated);
   }
 
   Future<void> clear() async {
     _activeGuestSession = null;
+    _guestEntryConfirmed = false;
     await _storage.delete(key: _key);
+  }
+
+  Future<void> _writeIgnoringFailure(Session session) async {
+    try {
+      await _storage.write(key: _key, value: jsonEncode(session.toJson()));
+    } catch (_) {
+      // Keep the active session usable even when secure storage is unavailable.
+    }
   }
 
   Future<void> _deleteIgnoringFailure() async {

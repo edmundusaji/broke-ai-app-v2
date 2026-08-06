@@ -60,6 +60,62 @@ final result: passed
 
 ---
 
+# Launcher, Manual Entry, and Guest Restart QA
+
+## Comparison target
+
+- Source visual truth:
+  - `C:/Users/edmun/AppData/Local/Temp/codex-clipboard-82b6ecf4-2fbf-4858-9012-01714da575c5.png` (circular launcher treatment)
+  - `C:/Users/edmun/AppData/Local/Temp/codex-clipboard-79b3e89e-9932-4dd7-9ee4-ed6e41be2d59.png` (manual transaction sheet)
+  - `C:/Users/edmun/AppData/Local/Temp/codex-clipboard-71a50d3c-9e20-4ec1-ada3-11fda409c76f.png` (manual banner)
+- Rendered implementation:
+  - `qa/launcher-icon-final.png`
+  - `qa/manual-polish-sheet.png`
+  - `qa/manual-banner-final.png`
+  - `qa/guest-cold-start-final.png`
+- Combined comparison evidence:
+  - `qa/comparison-launcher-icon.png`
+  - `qa/comparison-manual-polish.png`
+  - `qa/comparison-manual-banner.png`
+- Source dimensions: launcher 209 x 207, manual sheet 361 x 689, banner 347 x 92 pixels.
+- Implementation dimensions: launcher crop 230 x 230, manual sheet crop 1280 x 2445, banner crop 1136 x 276 pixels.
+- Verification device: 1280 x 2856 physical pixels, approximately 426.7 x 952 logical pixels at device pixel ratio 3.
+- Normalization: paired source and implementation images were aspect-fit into equal comparison panels. The manual implementation was cropped to the modal surface at y=411 so its aspect ratio matches the source sheet rather than including the dimmed dashboard behind it.
+- State: Android app drawer launcher icon, empty manual transaction form, and cold-start welcome route with a previously stored guest session.
+
+## Findings
+
+- No actionable P0, P1, or P2 differences remain.
+- Fonts and typography: field labels, values, supporting copy, banner hierarchy, and CTA weights retain the supplied light-mode hierarchy. Platform font rasterization is an acceptable P3 difference.
+- Spacing and layout rhythm: all four manual-entry leading icons now use the same 40 x 40 logical container and 22 logical icon size. Field heights, gaps, radii, and the bottom CTA remain aligned with the source.
+- Colors and visual tokens: the banner now uses a lavender surface gradient derived from the dog artwork, and the artwork fades into that surface instead of ending at a mismatched hard color seam.
+- Image quality and asset fidelity: the launcher uses a dedicated circular dog raster with a thin white perimeter and Android adaptive-icon resources, so the artwork fills the system mask instead of appearing as a tiny rounded square inside a white circle.
+- Copy and content: no product copy changed. Dynamic guest identity and transaction content continue to come from the stored session and API.
+- Shape and surfaces: recent-activity transaction tiles no longer render internal or footer divider lines; spacing alone separates the rows.
+- Responsiveness and accessibility: manual fields preserve practical tap targets, the sheet remains scrollable, and the adaptive icon includes both round and standard Android launcher resources.
+
+## Comparison history
+
+1. The first launcher build reproduced the original problem because Android treated the legacy PNG as an inset icon. Adaptive icon XML, density-specific foreground layers, a round-icon manifest entry, and a reduced foreground inset were added. The post-fix app-drawer capture shows a full circular dog icon with a small white ring.
+2. The first manual capture showed the description prefix background stretching to the full field height. The prefix was centered inside the same constrained 40 x 40 icon container used by the date, category, and payment fields. The post-fix comparison shows consistent icon geometry.
+3. The first banner pass still exposed a slight color boundary at the image edge. A matching three-stop lavender gradient and a short alpha fade were added. The focused comparison shows a continuous surface without the hard seam.
+
+## Functional verification
+
+- A new guest was created once, its username was recorded as `guest_3048398cfcd24409820e56e78a613cee`, the app process was force-stopped, and the next cold launch returned to the welcome entry screen.
+- Pressing Try Now after that restart reused the same stored username instead of calling the backend for another guest identity.
+- Guest AI trial count changes are persisted with the guest session in secure storage.
+- Automated coverage verifies guest identity/trial persistence, welcome routing after process recreation, reuse of the existing guest on Try Now, and divider-free recent activity rows.
+- `flutter analyze` reports no issues, all Flutter tests pass, and the Android debug APK builds successfully.
+
+## Follow-up polish
+
+- P3: individual Android launchers apply slightly different adaptive-icon masks and parallax scaling; the supplied round and adaptive resources keep the intended circular treatment across those variants.
+
+final result: passed
+
+---
+
 # Scan and Profile Design QA
 
 ## Comparison target

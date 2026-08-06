@@ -56,6 +56,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
           ),
           data: (session) {
             if (showAuth) return const RegisterPage();
+            if (session?.isGuest == true &&
+                !ref.read(sessionStoreProvider).guestEntryConfirmed) {
+              return const OnboardingPage();
+            }
             if (session != null) return const AppShell();
             return const OnboardingPage();
           },

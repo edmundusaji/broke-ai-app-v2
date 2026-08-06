@@ -293,7 +293,10 @@ class _ManualTransactionSheetState
               maxLines: 1,
               decoration: _fieldDecoration(
                 hintText: 'Add a note about this transaction',
-                prefixIcon: const _InputIcon(icon: Icons.notes_rounded),
+                prefixIcon: const SizedBox(
+                  width: 66,
+                  child: Center(child: _InputIcon(icon: Icons.notes_rounded)),
+                ),
                 errorText:
                     showValidation && descriptionController.text.trim().isEmpty
                     ? 'Enter a description'
@@ -324,7 +327,13 @@ class _ManualTransactionSheetState
             Container(
               height: 92,
               decoration: BoxDecoration(
-                color: const Color(0xfff6f3ff),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xffeee7ff),
+                    Color(0xfff3eeff),
+                    Color(0xfff8f5ff),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(18),
               ),
               clipBehavior: Clip.antiAlias,
@@ -332,11 +341,22 @@ class _ManualTransactionSheetState
                 children: [
                   SizedBox(
                     width: 122,
-                    child: Image.asset(
-                      AppAssets.manualDog,
-                      height: 92,
-                      fit: BoxFit.cover,
-                      alignment: const Alignment(-.1, -.05),
+                    child: ShaderMask(
+                      blendMode: BlendMode.dstIn,
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [
+                          Colors.black,
+                          Colors.black,
+                          Colors.transparent,
+                        ],
+                        stops: [0, .78, 1],
+                      ).createShader(bounds),
+                      child: Image.asset(
+                        AppAssets.manualDog,
+                        height: 92,
+                        fit: BoxFit.cover,
+                        alignment: const Alignment(-.1, -.05),
+                      ),
                     ),
                   ),
                   const Expanded(
@@ -755,6 +775,9 @@ InputDecoration _fieldDecoration({
   hintText: hintText,
   prefixText: prefixText,
   prefixIcon: prefixIcon,
+  prefixIconConstraints: prefixIcon == null
+      ? null
+      : const BoxConstraints(minWidth: 66),
   errorText: errorText,
   hintStyle: const TextStyle(color: AppColors.textSecondary),
   filled: true,
