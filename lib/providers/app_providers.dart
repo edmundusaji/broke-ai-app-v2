@@ -4,6 +4,7 @@ import '../models/expense_summary.dart';
 import '../models/session.dart';
 import '../models/transaction.dart';
 import '../services/api_client.dart';
+import '../services/expense_export_service.dart';
 import '../services/session_store.dart';
 
 typedef DashboardData = ({
@@ -15,6 +16,9 @@ typedef DashboardData = ({
 final sessionStoreProvider = Provider<SessionStore>((_) => SessionStore());
 final apiProvider = Provider<ApiClient>(
   (ref) => ApiClient(ref.watch(sessionStoreProvider)),
+);
+final expenseExportServiceProvider = Provider<ExpenseExportService>(
+  (_) => const ExpenseExportService(),
 );
 final sessionProvider = FutureProvider<Session?>(
   (ref) => ref.watch(sessionStoreProvider).read(),

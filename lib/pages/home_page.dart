@@ -28,6 +28,7 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
+    final selectedMonth = ref.watch(selectedMonthProvider);
     final user = ref.watch(sessionProvider).value;
     return SafeArea(
       bottom: false,
@@ -87,10 +88,7 @@ class HomePage extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _SpendingChart(
-                        data: data,
-                        onViewReport: () => _openHistory(context),
-                      ),
+                      _SpendingChart(data: data, month: selectedMonth),
                     ],
                   ),
                 ),
@@ -234,14 +232,45 @@ class _ExpenseSummaryCard extends StatelessWidget {
   );
 }
 
-class _SpendingChart extends StatelessWidget {
-  const _SpendingChart({required this.data, required this.onViewReport});
+class _SpendingChart extends ConsumerStatefulWidget {
+  const _SpendingChart({required this.data, required this.month});
 
   final DashboardData data;
-  final VoidCallback onViewReport;
+  final DateTime month;
+
+  @override
+  ConsumerState<_SpendingChart> createState() => _SpendingChartState();
+}
+
+class _SpendingChartState extends ConsumerState<_SpendingChart> {
+  bool exporting = false;
+
+  Future<void> _export() async {
+    if (exporting) return;
+    setState(() => exporting = true);
+    try {
+      await ref
+          .read(expenseExportServiceProvider)
+          .exportMonthly(
+            transactions: widget.data.history,
+            month: widget.month,
+          );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not export the Excel report. Try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => exporting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final data = widget.data;
     if (data.summary.categories.isEmpty || data.summary.total <= 0) {
       return Column(
         children: [
@@ -352,25 +381,37 @@ class _SpendingChart extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: onViewReport,
+          onTap: exporting ? null : _export,
           borderRadius: BorderRadius.circular(12),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
               children: [
-                Expanded(
+                const Icon(
+                  Icons.table_view_rounded,
+                  size: 20,
+                  color: AppColors.primaryAccent,
+                ),
+                const SizedBox(width: 9),
+                const Expanded(
                   child: Text(
-                    'View full report',
+                    'Export to Excel (.xlsx)',
                     style: TextStyle(
                       color: AppColors.primaryAccent,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.primaryAccent,
-                ),
+                if (exporting)
+                  const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                else
+                  const Icon(
+                    Icons.download_rounded,
+                    color: AppColors.primaryAccent,
+                  ),
               ],
             ),
           ),
