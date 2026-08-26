@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -129,10 +131,13 @@ class _ManualTransactionSheetState
 
     setState(() => saving = true);
     try {
-      final api = ref.read(apiProvider);
+      final session = await ref.read(sessionProvider.future);
+      if (session == null) throw StateError('No local account is active.');
+      final repository = await ref.read(transactionRepositoryProvider.future);
       if (editing) {
-        await api.updateTransaction(
-          id: widget.transaction!.id!,
+        await repository.updateTransaction(
+          accountScope: session.accountScope,
+          current: widget.transaction!,
           date: date,
           amount: amount,
           category: category!,
@@ -140,7 +145,8 @@ class _ManualTransactionSheetState
           description: description.isEmpty ? 'Manual transaction' : description,
         );
       } else {
-        await api.createManualTransaction(
+        await repository.createManualTransaction(
+          accountScope: session.accountScope,
           date: date,
           amount: amount,
           category: category!,
@@ -149,6 +155,8 @@ class _ManualTransactionSheetState
         );
       }
       ref.invalidate(dashboardProvider);
+      ref.invalidate(localTransactionSyncStatusProvider);
+      unawaited(synchronizeTransactions(ref));
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
       if (mounted) {
@@ -168,10 +176,10 @@ class _ManualTransactionSheetState
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * .94,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCard,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: [BoxShadow(color: Color(0x300f172a), blurRadius: 30)],
+        boxShadow: const [BoxShadow(color: Color(0x300f172a), blurRadius: 30)],
       ),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
@@ -219,8 +227,8 @@ class _ManualTransactionSheetState
                         editing
                             ? 'Update your expense details'
                             : 'Record your expense in seconds',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 15,
                         ),
                       ),
@@ -249,6 +257,7 @@ class _ManualTransactionSheetState
               ),
               style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
               decoration: _fieldDecoration(
+                context,
                 hintText: '0',
                 prefixText: 'Rp ',
                 errorText:
@@ -292,6 +301,7 @@ class _ManualTransactionSheetState
               textCapitalization: TextCapitalization.sentences,
               maxLines: 1,
               decoration: _fieldDecoration(
+                context,
                 hintText: 'Add a note about this transaction',
                 prefixIcon: const SizedBox(
                   width: 66,
@@ -369,6 +379,7 @@ class _ManualTransactionSheetState
                           Text(
                             'Keep your spending organized',
                             style: TextStyle(
+                              color: AppColors.textPrimary,
                               fontWeight: FontWeight.w800,
                               fontSize: 14,
                             ),
@@ -409,6 +420,7 @@ class _ManualTransactionSheetState
                 style: FilledButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   disabledBackgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
                   shadowColor: Colors.transparent,
                   minimumSize: const Size(0, 56),
                 ),
@@ -450,10 +462,10 @@ class _CategoryPicker extends StatelessWidget {
     maxChildSize: .94,
     expand: false,
     builder: (context, controller) => Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCard,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: [BoxShadow(color: Color(0x300f172a), blurRadius: 28)],
+        boxShadow: const [BoxShadow(color: Color(0x300f172a), blurRadius: 28)],
       ),
       child: Column(
         children: [
@@ -522,18 +534,24 @@ class _CategoryPicker extends StatelessWidget {
                       vertical: 16,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xfff4f3ff),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: .1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xffb8b2ff)),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: .55),
+                      ),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Icon(
                           Icons.auto_awesome_rounded,
-                          color: AppColors.primaryAccent,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                        SizedBox(width: 12),
-                        Expanded(
+                        const SizedBox(width: 12),
+                        const Expanded(
                           child: Text(
                             'More categories coming soon!',
                             textAlign: TextAlign.center,
@@ -542,7 +560,7 @@ class _CategoryPicker extends StatelessWidget {
                         ),
                         Icon(
                           Icons.auto_awesome_rounded,
-                          color: AppColors.primaryAccent,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ],
                     ),
@@ -561,13 +579,15 @@ class _CategoryPicker extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: selected
-                          ? const Color(0xfff5f3ff)
-                          : AppColors.surfaceCard,
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: .1)
+                          : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(19),
                       border: Border.all(
                         color: selected
                             ? AppColors.primaryAccent
-                            : AppColors.borderSubtle,
+                            : Theme.of(context).colorScheme.outlineVariant,
                         width: selected ? 1.5 : 1,
                       ),
                       boxShadow: const [
@@ -608,8 +628,10 @@ class _CategoryPicker extends StatelessWidget {
                               const SizedBox(height: 3),
                               Text(
                                 _categoryDescriptions[value] ?? '',
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                   fontSize: 13,
                                 ),
                               ),
@@ -622,7 +644,7 @@ class _CategoryPicker extends StatelessWidget {
                               : Icons.chevron_right_rounded,
                           color: selected
                               ? AppColors.primaryAccent
-                              : AppColors.textSecondary,
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                           size: selected ? 28 : 24,
                         ),
                       ],
@@ -645,8 +667,8 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     text,
-    style: const TextStyle(
-      color: Color(0xff40486b),
+    style: TextStyle(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
       fontWeight: FontWeight.w700,
       fontSize: 14,
     ),
@@ -686,11 +708,11 @@ class _PickerField extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 62),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: errorText == null
-                  ? AppColors.borderSubtle
+                  ? Theme.of(context).colorScheme.outlineVariant
                   : AppColors.danger,
             ),
           ),
@@ -705,8 +727,8 @@ class _PickerField extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: muted
-                        ? AppColors.textSecondary
-                        : AppColors.textPrimary,
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
+                        : Theme.of(context).colorScheme.onSurface,
                     fontSize: 15,
                     fontWeight: muted ? FontWeight.w400 : FontWeight.w600,
                   ),
@@ -759,43 +781,50 @@ class _CloseButton extends StatelessWidget {
     tooltip: 'Close',
     onPressed: onPressed,
     style: IconButton.styleFrom(
-      backgroundColor: AppColors.surfaceRaised,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       minimumSize: const Size.square(48),
     ),
-    icon: const Icon(Icons.close_rounded, color: AppColors.textPrimary),
+    icon: Icon(
+      Icons.close_rounded,
+      color: Theme.of(context).colorScheme.onSurface,
+    ),
   );
 }
 
-InputDecoration _fieldDecoration({
+InputDecoration _fieldDecoration(
+  BuildContext context, {
   String? hintText,
   String? prefixText,
   Widget? prefixIcon,
   String? errorText,
-}) => InputDecoration(
-  hintText: hintText,
-  prefixText: prefixText,
-  prefixIcon: prefixIcon,
-  prefixIconConstraints: prefixIcon == null
-      ? null
-      : const BoxConstraints(minWidth: 66),
-  errorText: errorText,
-  hintStyle: const TextStyle(color: AppColors.textSecondary),
-  filled: true,
-  fillColor: Colors.white,
-  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(16),
-    borderSide: const BorderSide(color: AppColors.borderSubtle),
-  ),
-  enabledBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(16),
-    borderSide: const BorderSide(color: AppColors.borderSubtle),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(16),
-    borderSide: const BorderSide(color: AppColors.primaryAccent, width: 1.5),
-  ),
-);
+}) {
+  final colors = Theme.of(context).colorScheme;
+  return InputDecoration(
+    hintText: hintText,
+    prefixText: prefixText,
+    prefixIcon: prefixIcon,
+    prefixIconConstraints: prefixIcon == null
+        ? null
+        : const BoxConstraints(minWidth: 66),
+    errorText: errorText,
+    hintStyle: TextStyle(color: colors.onSurfaceVariant),
+    filled: true,
+    fillColor: colors.surfaceContainerHighest,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: colors.outlineVariant),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: colors.outlineVariant),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: AppColors.primaryAccent, width: 1.5),
+    ),
+  );
+}
 
 String? _canonicalCategory(String? value) {
   final normalized = value?.trim().toLowerCase() ?? '';

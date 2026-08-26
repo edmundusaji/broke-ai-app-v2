@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/app_assets.dart';
 import '../core/app_theme.dart';
@@ -52,7 +51,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
           .read(apiProvider)
           .receipt(File(image!.path));
       await _consumeAndRefreshTrial();
-      ref.invalidate(dashboardProvider);
+      await synchronizeTransactions(ref);
       if (mounted) {
         setState(() => image = null);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -64,11 +63,24 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     } on GuestAiTrialLimitException {
       await _setRemainingTrials(0);
       if (mounted) await _showGuestLimit();
-    } catch (_) {
-      await _queueOffline('receipt', image!.path);
+    } catch (error) {
+      if (!_retryableOfflineError(error)) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
+        }
+        return;
+      }
+      await _queueReceiptOffline(File(image!.path));
       if (mounted) {
+        setState(() => image = null);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved to the offline queue.')),
+          const SnackBar(
+            content: Text(
+              'Receipt saved on this device. It will process when online.',
+            ),
+          ),
         );
       }
     } finally {
@@ -83,7 +95,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     try {
       await ref.read(apiProvider).notification(text);
       await _consumeAndRefreshTrial();
-      ref.invalidate(dashboardProvider);
+      await synchronizeTransactions(ref);
       if (mounted) {
         notificationController.clear();
         setState(() {});
@@ -91,8 +103,27 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     } on GuestAiTrialLimitException {
       await _setRemainingTrials(0);
       if (mounted) await _showGuestLimit();
-    } catch (_) {
-      await _queueOffline('notification', text);
+    } catch (error) {
+      if (!_retryableOfflineError(error)) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(apiErrorMessage(error))));
+        }
+        return;
+      }
+      await _queueNotificationOffline(text);
+      if (mounted) {
+        notificationController.clear();
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Text saved on this device. It will process when online.',
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => processing = false);
     }
@@ -153,17 +184,40 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     );
   }
 
-  Future<void> _queueOffline(String type, String payload) async {
-    final preferences = await SharedPreferences.getInstance();
-    final queue = preferences.getStringList('offline_queue') ?? [];
-    queue.add(
-      jsonEncode({
-        'type': type,
-        'payload': payload,
-        'createdAt': DateTime.now().toIso8601String(),
-      }),
+  Future<void> _queueReceiptOffline(File file) async {
+    final session = await ref.read(sessionProvider.future);
+    if (session == null) throw StateError('No local account is active.');
+    final repository = await ref.read(transactionRepositoryProvider.future);
+    await repository.queueReceipt(
+      accountScope: session.accountScope,
+      source: file,
     );
-    await preferences.setStringList('offline_queue', queue);
+    ref.invalidate(localTransactionSyncStatusProvider);
+  }
+
+  Future<void> _queueNotificationOffline(String text) async {
+    final session = await ref.read(sessionProvider.future);
+    if (session == null) throw StateError('No local account is active.');
+    final repository = await ref.read(transactionRepositoryProvider.future);
+    await repository.queueNotificationText(
+      accountScope: session.accountScope,
+      text: text,
+    );
+    ref.invalidate(localTransactionSyncStatusProvider);
+  }
+
+  bool _retryableOfflineError(Object error) {
+    if (error is StateError) return true;
+    if (error is! DioException) return false;
+    final status = error.response?.statusCode;
+    return error.type == DioExceptionType.connectionError ||
+        error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        status == 408 ||
+        status == 425 ||
+        status == 429 ||
+        (status != null && status >= 500);
   }
 
   @override
@@ -179,11 +233,11 @@ class _ScanPageState extends ConsumerState<ScanPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Scan a receipt',
                       style: TextStyle(
                         fontSize: 29,
@@ -194,7 +248,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
                     Text(
                       'Snap a photo, upload from gallery, or type it in for AI to extract your expenses.',
                       style: TextStyle(
-                        color: AppColors.textSecondary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 15,
                         height: 1.45,
                       ),
@@ -235,7 +289,9 @@ class _ScanPageState extends ConsumerState<ScanPage> {
                         icon: const Icon(Icons.camera_alt_outlined),
                         label: const Text('Camera'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onSurface,
                           side: const BorderSide(
                             color: AppColors.primaryAccent,
                             width: 1.4,
@@ -256,9 +312,17 @@ class _ScanPageState extends ConsumerState<ScanPage> {
                         icon: const Icon(Icons.photo_outlined),
                         label: const Text('Gallery'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary,
-                          backgroundColor: const Color(0xfffaf7ff),
-                          side: const BorderSide(color: Color(0xffd8d1ff)),
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onSurface,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: .06),
+                          side: BorderSide(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: .3),
+                          ),
                           minimumSize: const Size(0, 52),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(17),
@@ -297,23 +361,25 @@ class _ScanPageState extends ConsumerState<ScanPage> {
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     hintText: "Input the activities, e.g. ‘KFC 25.000 GoPay’",
-                    hintStyle: const TextStyle(
-                      color: AppColors.textSecondary,
+                    hintStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 14,
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     contentPadding: const EdgeInsets.all(15),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(
-                        color: AppColors.borderSubtle,
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(15),
-                      borderSide: const BorderSide(
-                        color: AppColors.borderSubtle,
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
@@ -348,21 +414,26 @@ class _ScanPageState extends ConsumerState<ScanPage> {
           Container(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             decoration: BoxDecoration(
-              color: const Color(0xffedf7ff),
+              color: Theme.of(
+                context,
+              ).colorScheme.secondary.withValues(alpha: .1),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.info_outline_rounded, color: Color(0xff2586f5)),
-                SizedBox(width: 12),
-                Expanded(
+                const Icon(
+                  Icons.info_outline_rounded,
+                  color: Color(0xff2586f5),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
                   child: Text(
                     'AI can detect merchant, amount, and payment method. Best results: use clear photos with good lighting.',
                     style: TextStyle(fontSize: 12.5, height: 1.4),
                   ),
                 ),
-                SizedBox(width: 8),
-                Icon(
+                const SizedBox(width: 8),
+                const Icon(
                   Icons.verified_rounded,
                   color: AppColors.successMint,
                   size: 27,
@@ -456,53 +527,61 @@ class _AiActionButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: enabled ? AppColors.primaryAccent : const Color(0xfff5f6f8),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: BorderSide(
-        color: enabled ? AppColors.primaryAccent : AppColors.borderSubtle,
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: enabled ? colors.primary : colors.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: enabled ? colors.primary : colors.outlineVariant,
+        ),
       ),
-    ),
-    child: InkWell(
-      onTap: enabled ? onPressed : null,
-      borderRadius: BorderRadius.circular(16),
-      child: SizedBox(
-        height: 66,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  color: enabled ? Colors.white : const Color(0xff9ca3af),
-                  size: 20,
-                ),
-                const SizedBox(width: 7),
+      child: InkWell(
+        onTap: enabled ? onPressed : null,
+        borderRadius: BorderRadius.circular(16),
+        child: SizedBox(
+          height: 66,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    color: enabled ? colors.onPrimary : colors.onSurfaceVariant,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    processing ? 'Analyzing with AI...' : 'Analyze with AI',
+                    style: TextStyle(
+                      color: enabled
+                          ? colors.onPrimary
+                          : colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              if (!enabled && !processing) ...[
+                const SizedBox(height: 3),
                 Text(
-                  processing ? 'Analyzing with AI...' : 'Analyze with AI',
+                  'Add a receipt or type text to continue',
                   style: TextStyle(
-                    color: enabled ? Colors.white : const Color(0xff8b8fa0),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
+                    color: colors.onSurfaceVariant.withValues(alpha: .8),
+                    fontSize: 12,
                   ),
                 ),
               ],
-            ),
-            if (!enabled && !processing) ...[
-              const SizedBox(height: 3),
-              const Text(
-                'Add a receipt or type text to continue',
-                style: TextStyle(color: Color(0xff9296a8), fontSize: 12),
-              ),
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DashedFramePainter extends CustomPainter {

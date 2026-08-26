@@ -6,6 +6,8 @@ import '../core/app_assets.dart';
 import '../core/app_theme.dart';
 import '../providers/app_providers.dart';
 
+enum _GuestSignInChoice { cancel, createAccount, continueSignIn }
+
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key, this.error});
 
@@ -38,7 +40,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   @override
   void initState() {
     super.initState();
-    _register = ref.read(sessionProvider).value?.isGuest == true;
+    final guest = ref.read(sessionProvider).value?.isGuest == true;
+    _register = guest && !ref.read(authStartInLoginProvider);
   }
 
   @override
@@ -69,7 +72,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       });
       return;
     }
+    if (ref.read(appLockRecoveryProvider) ==
+        AppLockRecoveryStep.reauthenticate) {
+      ref.read(appLockRecoveryProvider.notifier).state =
+          AppLockRecoveryStep.none;
+    }
     ref.read(showAuthProvider.notifier).state = false;
+    ref.read(authStartInLoginProvider.notifier).state = false;
   }
 
   void _openRegistration() {
@@ -137,14 +146,38 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       setState(() => _error = 'Enter your username and password.');
       return;
     }
+    var mergeGuest = false;
+    if (_upgradingGuest) {
+      final choice = await _confirmGuestSignIn();
+      if (!mounted || choice == null || choice == _GuestSignInChoice.cancel) {
+        return;
+      }
+      if (choice == _GuestSignInChoice.createAccount) {
+        _openRegistration();
+        return;
+      }
+      mergeGuest = choice == _GuestSignInChoice.continueSignIn;
+    }
     await _runRequest(() async {
-      final session = await ref
-          .read(apiProvider)
-          .login(
-            _loginUsernameController.text.trim(),
-            _loginPasswordController.text,
-          );
+      final api = ref.read(apiProvider);
+      if (mergeGuest) await synchronizeTransactions(ref);
+      final session = mergeGuest
+          ? await api.mergeGuest(
+              username: _loginUsernameController.text.trim(),
+              password: _loginPasswordController.text,
+            )
+          : await api.login(
+              _loginUsernameController.text.trim(),
+              _loginPasswordController.text,
+            );
       await ref.read(sessionStoreProvider).save(session);
+      if (ref.read(appLockRecoveryProvider) ==
+          AppLockRecoveryStep.reauthenticate) {
+        ref.read(appLockRecoveryProvider.notifier).state =
+            AppLockRecoveryStep.chooseAction;
+      } else {
+        ref.read(appUnlockedProvider.notifier).state = true;
+      }
     });
   }
 
@@ -164,6 +197,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     }
     await _runRequest(() async {
       final api = ref.read(apiProvider);
+      final guestSession = _upgradingGuest
+          ? await ref.read(sessionStoreProvider).read()
+          : null;
+      if (_upgradingGuest) await synchronizeTransactions(ref);
       await api.register(
         fullName: _fullNameController.text.trim(),
         username: _usernameController.text.trim(),
@@ -171,11 +208,26 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         password: _passwordController.text,
         preserveGuest: _upgradingGuest,
       );
-      final session = await api.login(
+      var session = await api.login(
         _usernameController.text.trim(),
         _passwordController.text,
       );
+      if (_upgradingGuest) {
+        session = session.copyWith(
+          localScopeId: guestSession?.accountScope,
+          clientGuestId: guestSession?.clientGuestId,
+          installationCredential: guestSession?.installationCredential,
+        );
+        await ref.read(settingsRepositoryProvider).markLocalSettingsForSync();
+      }
       await ref.read(sessionStoreProvider).save(session);
+      if (ref.read(appLockRecoveryProvider) ==
+          AppLockRecoveryStep.reauthenticate) {
+        ref.read(appLockRecoveryProvider.notifier).state =
+            AppLockRecoveryStep.chooseAction;
+      } else {
+        ref.read(appUnlockedProvider.notifier).state = true;
+      }
     });
   }
 
@@ -187,8 +239,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     try {
       await request();
       ref.read(showAuthProvider.notifier).state = false;
+      ref.read(authStartInLoginProvider.notifier).state = false;
       ref.invalidate(sessionProvider);
       ref.invalidate(dashboardProvider);
+      ref.invalidate(accountPreferencesProvider);
+      ref.invalidate(syncStatusProvider);
     } catch (exception) {
       if (mounted) {
         setState(() {
@@ -201,6 +256,35 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  Future<_GuestSignInChoice?>
+  _confirmGuestSignIn() => showDialog<_GuestSignInChoice>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      icon: const Icon(Icons.history_rounded),
+      title: const Text('What happens to guest history?'),
+      content: const Text(
+        'Create a new account or sign in to merge this device\'s guest transactions into an existing account. Pending offline changes will sync when the server is available.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () =>
+              Navigator.pop(dialogContext, _GuestSignInChoice.cancel),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () =>
+              Navigator.pop(dialogContext, _GuestSignInChoice.createAccount),
+          child: const Text('Create account'),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.pop(dialogContext, _GuestSignInChoice.continueSignIn),
+          child: const Text('Sign in & merge'),
+        ),
+      ],
+    ),
+  );
 
   void _showForgotPasswordMessage() {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -326,25 +410,28 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
               onForgotPassword: _showForgotPasswordMessage,
               onSubmit: _submitLogin,
             ),
-            const SizedBox(height: 14),
-            TextButton(
-              onPressed: _loading ? null : _openRegistration,
-              child: const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'New here? ',
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
-                    TextSpan(
-                      text: 'Register',
-                      style: TextStyle(color: AppColors.primaryAccent),
-                    ),
-                  ],
+            if (ref.watch(appLockRecoveryProvider) !=
+                AppLockRecoveryStep.reauthenticate) ...[
+              const SizedBox(height: 14),
+              TextButton(
+                onPressed: _loading ? null : _openRegistration,
+                child: const Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'New here? ',
+                        style: TextStyle(color: AppColors.textPrimary),
+                      ),
+                      TextSpan(
+                        text: 'Register',
+                        style: TextStyle(color: AppColors.primaryAccent),
+                      ),
+                    ],
+                  ),
+                  style: TextStyle(fontSize: 17),
                 ),
-                style: TextStyle(fontSize: 17),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -1433,8 +1520,12 @@ BoxDecoration _authSurfaceDecoration({required double radius}) => BoxDecoration(
 
 String _messageFromDio(DioException error) {
   final data = error.response?.data;
-  if (data is Map && data['message'] is String) {
-    return data['message'] as String;
+  if (data is Map) {
+    if (data['message'] is String) return data['message'] as String;
+    final contractError = data['error'];
+    if (contractError is Map && contractError['message'] is String) {
+      return contractError['message'] as String;
+    }
   }
   return 'Unable to connect to the server.';
 }

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_theme.dart';
 import '../models/transaction.dart';
 import '../providers/app_providers.dart';
+import '../services/api_client.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/manual_transaction_sheet.dart';
 import '../widgets/surface_card.dart';
@@ -17,7 +20,7 @@ class HistoryPage extends ConsumerWidget {
     final dashboard = ref.watch(dashboardProvider);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.primaryBackground,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         leading: const BackButton(),
         title: const Text('Transaction history'),
         actions: const [MonthPicker()],
@@ -26,10 +29,10 @@ class HistoryPage extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.gold),
         ),
-        error: (error, _) => _HistoryError(error: error.toString()),
+        error: (error, _) => _HistoryError(error: apiErrorMessage(error)),
         data: (data) => RefreshIndicator(
           color: AppColors.gold,
-          onRefresh: () => ref.refresh(dashboardProvider.future),
+          onRefresh: () => synchronizeTransactions(ref),
           child: data.history.isEmpty
               ? ListView(
                   children: const [
@@ -99,12 +102,57 @@ class HistoryPage extends ConsumerWidget {
                 ),
                 onTap: () => Navigator.pop(sheetContext, _HistoryAction.delete),
               ),
+              if (transaction.syncState == 'conflict') ...[
+                const Divider(),
+                ListTile(
+                  leading: const Icon(
+                    Icons.phone_android_rounded,
+                    color: AppColors.gold,
+                  ),
+                  title: const Text('Keep my version'),
+                  subtitle: const Text('Retry using the latest cloud revision'),
+                  onTap: () =>
+                      Navigator.pop(sheetContext, _HistoryAction.keepLocal),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.cloud_download_outlined),
+                  title: const Text('Use cloud version'),
+                  subtitle: const Text(
+                    'Discard this device\'s conflicting edit',
+                  ),
+                  onTap: () =>
+                      Navigator.pop(sheetContext, _HistoryAction.useServer),
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
     if (!context.mounted || action == null) return;
+
+    if (action == _HistoryAction.keepLocal ||
+        action == _HistoryAction.useServer) {
+      final session = await ref.read(sessionProvider.future);
+      final clientId = transaction.clientTransactionId;
+      if (session == null || clientId == null) return;
+      final repository = await ref.read(transactionRepositoryProvider.future);
+      if (action == _HistoryAction.keepLocal) {
+        await repository.resolveConflictKeepingLocal(
+          accountScope: session.accountScope,
+          clientTransactionId: clientId,
+        );
+      } else {
+        await repository.resolveConflictUsingServer(
+          accountScope: session.accountScope,
+          clientTransactionId: clientId,
+        );
+      }
+      ref.invalidate(dashboardProvider);
+      ref.invalidate(localTransactionSyncStatusProvider);
+      unawaited(synchronizeTransactions(ref));
+      return;
+    }
 
     if (action == _HistoryAction.edit) {
       await showModalBottomSheet<void>(
@@ -137,11 +185,19 @@ class HistoryPage extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed != true || transaction.id == null) return;
+    if (confirmed != true || transaction.clientTransactionId == null) return;
 
     try {
-      await ref.read(apiProvider).deleteTransaction(transaction.id!);
+      final session = await ref.read(sessionProvider.future);
+      if (session == null) throw StateError('No local account is active.');
+      final repository = await ref.read(transactionRepositoryProvider.future);
+      await repository.deleteTransaction(
+        accountScope: session.accountScope,
+        transaction: transaction,
+      );
       ref.invalidate(dashboardProvider);
+      ref.invalidate(localTransactionSyncStatusProvider);
+      unawaited(synchronizeTransactions(ref));
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -152,7 +208,7 @@ class HistoryPage extends ConsumerWidget {
   }
 }
 
-enum _HistoryAction { edit, delete }
+enum _HistoryAction { edit, delete, keepLocal, useServer }
 
 class _HistoryError extends ConsumerWidget {
   const _HistoryError({required this.error});

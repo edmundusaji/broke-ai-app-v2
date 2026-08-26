@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:broke_ai_app/models/session.dart';
+import 'package:broke_ai_app/models/account_settings.dart';
 import 'package:broke_ai_app/models/transaction.dart';
 import 'package:broke_ai_app/pages/profile_page.dart';
 import 'package:broke_ai_app/pages/register_page.dart';
+import 'package:broke_ai_app/pages/help_faq_page.dart';
 import 'package:broke_ai_app/providers/app_providers.dart';
 import 'package:broke_ai_app/services/api_client.dart';
 import 'package:broke_ai_app/services/session_store.dart';
@@ -23,6 +25,7 @@ Session _session({required bool isGuest}) => Session(
   username: isGuest ? 'guest_123' : 'edmund',
   isGuest: isGuest,
   fullName: isGuest ? 'Guest User' : 'Edmund',
+  email: isGuest ? null : 'edmund@example.com',
 );
 
 const _transaction = Transaction(
@@ -149,10 +152,10 @@ void main() {
     expect(session.displayName, 'Edmund Aji');
   });
 
-  testWidgets('guest profile replaces logout with Login / Register', (
+  testWidgets('guest profile exposes account protection and guest controls', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    await tester.binding.setSurfaceSize(const Size(800, 1800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final container = ProviderContainer(
       overrides: [
@@ -168,11 +171,64 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Login / Register'), findsOneWidget);
+    expect(find.text('Create account'), findsWidgets);
+    expect(find.text('Already have an account? Sign in'), findsOneWidget);
+    expect(find.text('AI scans remaining'), findsOneWidget);
+    expect(find.text('Currency & language'), findsOneWidget);
+    expect(find.text('Delete guest data'), findsOneWidget);
+    expect(find.text('Manage profile'), findsNothing);
     expect(find.text('Log out'), findsNothing);
 
-    await tester.tap(find.text('Login / Register'));
+    await tester.ensureVisible(find.text('App lock'));
+    await tester.tap(find.text('App lock'));
+    await tester.pumpAndSettle();
+    expect(find.text('Device-only protection'), findsOneWidget);
+    expect(find.text('Change password'), findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Create account').first);
     expect(container.read(showAuthProvider), isTrue);
+    expect(container.read(authStartInLoginProvider), isFalse);
+
+    container.read(showAuthProvider.notifier).state = false;
+    await tester.tap(find.text('Already have an account? Sign in'));
+    expect(container.read(showAuthProvider), isTrue);
+    expect(container.read(authStartInLoginProvider), isTrue);
+  });
+
+  testWidgets('guest bug report keeps the form local before sign-in', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionProvider.overrideWith((ref) => _session(isGuest: true)),
+        ],
+        child: const MaterialApp(home: HelpFaqPage(openBugReport: true)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      find.text('Describe what you expected and what happened.'),
+      findsOneWidget,
+    );
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(1), 'Receipt scan failed');
+    await tester.enterText(
+      fields.at(2),
+      'The scanner stopped after selection.',
+    );
+    await tester.tap(find.text('Submit bug report'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Sign in to submit'), findsOneWidget);
+    expect(find.text('Share draft'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
   });
 
   testWidgets('account profile retains the logout action', (tester) async {
@@ -182,6 +238,10 @@ void main() {
       ProviderScope(
         overrides: [
           sessionProvider.overrideWith((ref) => _session(isGuest: false)),
+          syncStatusProvider.overrideWith(
+            (ref) async =>
+                const SyncStatus(status: 'synced', serverRevision: 1),
+          ),
         ],
         child: const MaterialApp(home: Scaffold(body: ProfilePage())),
       ),
@@ -190,6 +250,16 @@ void main() {
 
     expect(find.text('Log out'), findsOneWidget);
     expect(find.text('Login / Register'), findsNothing);
+    expect(find.text('edmund@example.com'), findsOneWidget);
+    expect(find.text('Your data is protected'), findsOneWidget);
+    expect(find.text('Security'), findsOneWidget);
+    expect(find.text('Currency & language'), findsOneWidget);
+    expect(find.text('Data & privacy'), findsOneWidget);
+    expect(find.text('Server settings'), findsNothing);
+
+    await tester.tap(find.text('View backup'));
+    await tester.pumpAndSettle();
+    expect(find.text('Backup & sync'), findsOneWidget);
   });
 
   testWidgets('guest authentication screen offers registration and sign in', (
@@ -211,6 +281,15 @@ void main() {
     await tester.tap(signInToggle);
     await tester.pumpAndSettle();
     expect(find.text('Welcome\nback.'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).at(0), 'existing-user');
+    await tester.enterText(find.byType(TextField).at(1), 'password123!');
+    await tester.ensureVisible(find.text('Sign in'));
+    await tester.tap(find.text('Sign in'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('What happens to guest history?'), findsOneWidget);
+    expect(find.text('Sign in & merge'), findsOneWidget);
   });
 
   testWidgets('registration collects account details across three steps', (

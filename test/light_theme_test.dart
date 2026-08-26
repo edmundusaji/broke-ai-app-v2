@@ -147,4 +147,31 @@ void main() {
 
     expect(find.byIcon(Icons.pets_rounded), findsOneWidget);
   });
+
+  testWidgets('mascot background blends into the light card surface', (
+    tester,
+  ) async {
+    const mascotKey = ValueKey('light-mascot');
+    final theme = buildAppTheme();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: const Scaffold(
+          body: MascotImage(
+            key: mascotKey,
+            asset: AppAssets.dashboardDog,
+            height: 180,
+          ),
+        ),
+      ),
+    );
+
+    final background = tester.widget<ColoredBox>(
+      find.descendant(
+        of: find.byKey(mascotKey),
+        matching: find.byType(ColoredBox),
+      ),
+    );
+    expect(background.color, theme.colorScheme.surface);
+  });
 }

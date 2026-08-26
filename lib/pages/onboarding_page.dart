@@ -28,7 +28,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       semanticTitle: 'How would you like to start?',
       title: 'How would\nyou like to\n',
       highlight: 'start?',
-      subtitle: 'Track expenses instantly,\nor explore powerful\nAI features.',
       asset: AppAssets.onboardingDog,
       cardTitle: 'Guest Mode',
       cardDescription:
@@ -41,8 +40,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       semanticTitle: 'See your money, smarter.',
       title: 'See your\nmoney,\n',
       highlight: 'smarter.',
-      subtitle:
-          'Understand your\nspending with clear\ninsights and\ndetailed history.',
       asset: AppAssets.onboardingInsightsDog,
       cardTitle: 'Smarter Insights',
       cardDescription:
@@ -55,8 +52,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       semanticTitle: 'Every expense. Every insight. One place.',
       title: 'Every expense.\nEvery insight.\n',
       highlight: 'One place.',
-      subtitle:
-          'Scan, track, and analyze\nyour spending with\nsmart summaries and\nreal-time insights.',
       asset: AppAssets.onboardingTrackingDog,
       cardTitle: 'Smart Tracking',
       cardDescription:
@@ -89,15 +84,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       _error = null;
     });
     try {
-      final session = await ref.read(apiProvider).guestLogin();
-      await ref.read(sessionStoreProvider).save(session);
+      await ref.read(sessionStoreProvider).createOfflineGuest();
+      ref.read(appUnlockedProvider.notifier).state = true;
       ref.read(showAuthProvider.notifier).state = false;
       ref.invalidate(sessionProvider);
+      unawaited(synchronizeTransactions(ref));
     } catch (_) {
       if (mounted) {
-        setState(
-          () => _error = 'Unable to start Guest Mode. Please try again.',
-        );
+        setState(() => _error = 'Unable to start Guest Mode on this device.');
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -214,28 +208,6 @@ class _OnboardingSlide extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: 250,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              AppColors.surfaceCard,
-                              AppColors.surfaceCard.withValues(alpha: .96),
-                              AppColors.surfaceCard.withValues(alpha: 0),
-                            ],
-                            stops: const [0, .58, 1],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
                     left: 14,
                     top: 16,
                     child: Icon(
@@ -272,19 +244,6 @@ class _OnboardingSlide extends StatelessWidget {
                             ],
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 14,
-                    top: compact ? 168 : 194,
-                    child: Text(
-                      data.subtitle,
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: compact ? 13 : 15,
-                        height: 1.48,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -543,7 +502,6 @@ class _SlideData {
     required this.semanticTitle,
     required this.title,
     required this.highlight,
-    required this.subtitle,
     required this.asset,
     required this.cardTitle,
     required this.cardDescription,
@@ -555,7 +513,6 @@ class _SlideData {
   final String semanticTitle;
   final String title;
   final String highlight;
-  final String subtitle;
   final String asset;
   final String cardTitle;
   final String cardDescription;

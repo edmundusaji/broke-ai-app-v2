@@ -19,6 +19,8 @@ abstract final class AppAssets {
       'onboarding-feature-3.png';
   static const dashboardDog =
       'assets/mockups/light_mode/homepage/homepage-dog.png';
+  static const dashboardDogDark =
+      'assets/mockups/light_mode/homepage/homepage-dog-transparent.png';
   static const loginDog = 'assets/mockups/light_mode/auth_crops/login-dog.png';
   static const registerDog =
       'assets/mockups/light_mode/auth_crops/register-step-1-dog.png';

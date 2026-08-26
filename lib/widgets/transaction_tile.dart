@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../core/app_theme.dart';
 import '../models/transaction.dart';
 import '../utils/formatters.dart';
 import 'payment_method_logo.dart';
@@ -21,6 +20,15 @@ class TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final category = transaction.category ?? 'Other';
     final description = transaction.description?.trim();
+    final source = transaction.captureMode == 'AUTOMATIC'
+        ? 'Auto-captured · '
+        : '';
+    final syncLabel = switch (transaction.syncState) {
+      'pending' => ' · Saved on device',
+      'failed' => ' · Sync failed',
+      'conflict' => ' · Needs attention',
+      _ => '',
+    };
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
@@ -30,11 +38,11 @@ class TransactionTile extends StatelessWidget {
         style: const TextStyle(fontWeight: FontWeight.w800),
       ),
       subtitle: Text(
-        '${description?.isNotEmpty == true ? description : 'No description'} · ${shortDate(transaction.date)}',
+        '$source${description?.isNotEmpty == true ? description : 'No description'} · ${shortDate(transaction.date)}$syncLabel',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: AppColors.textSecondary,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           height: 1.3,
           fontSize: 12.5,
         ),
@@ -43,8 +51,8 @@ class TransactionTile extends StatelessWidget {
           trailing ??
           Text(
             '-${money(transaction.amount ?? 0)}',
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w800,
               fontSize: 12.5,
             ),

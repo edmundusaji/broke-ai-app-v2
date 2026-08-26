@@ -34,6 +34,23 @@ void main() {
     expect(restartedStore.guestEntryConfirmed, isFalse);
   });
 
+  test('account login survives a process restart', () async {
+    final activeStore = SessionStore();
+    await activeStore.save(
+      Session(
+        token: 'persistent-account-token',
+        expiresAt: DateTime.now().add(const Duration(days: 1)),
+        username: 'edmund',
+        isGuest: false,
+      ),
+    );
+
+    final restored = await SessionStore().read();
+
+    expect(restored?.token, 'persistent-account-token');
+    expect(restored?.isGuest, isFalse);
+  });
+
   testWidgets(
     'cold-start guest sees welcome and Try Now reuses the stored identity',
     (tester) async {

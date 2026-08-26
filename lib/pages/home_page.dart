@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_assets.dart';
 import '../core/app_theme.dart';
 import '../models/transaction.dart';
+import '../models/session.dart';
 import '../providers/app_providers.dart';
+import '../services/api_client.dart';
+import '../services/offline_database.dart';
 import '../utils/formatters.dart';
 import '../utils/transaction_visuals.dart';
 import '../widgets/common_widgets.dart';
@@ -28,26 +31,33 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
+    final localSync = ref.watch(localTransactionSyncStatusProvider).value;
     final selectedMonth = ref.watch(selectedMonthProvider);
     final user = ref.watch(sessionProvider).value;
     return SafeArea(
       bottom: false,
       child: dashboard.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _HomeError(error: error.toString()),
+        error: (error, _) => _HomeError(error: apiErrorMessage(error)),
         data: (data) {
           final todayTotal = data.history
               .where((transaction) => isToday(transaction.date))
               .fold<double>(0, (sum, item) => sum + (item.amount ?? 0));
           return RefreshIndicator(
             color: AppColors.primaryAccent,
-            onRefresh: () => ref.refresh(dashboardProvider.future),
+            onRefresh: () => synchronizeTransactions(ref),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 108),
               children: [
                 _HomeHeader(
                   name: user?.displayName.split(' ').first ?? 'Guest',
                 ),
+                if (user != null &&
+                    localSync != null &&
+                    (localSync.status != 'synced' || localSync.hasPending)) ...[
+                  const SizedBox(height: 12),
+                  _OfflineSyncBanner(session: user, status: localSync),
+                ],
                 const SizedBox(height: 22),
                 _ExpenseSummaryCard(data: data),
                 const SizedBox(height: 16),
@@ -125,6 +135,86 @@ class HomePage extends ConsumerWidget {
   }
 }
 
+class _OfflineSyncBanner extends StatelessWidget {
+  const _OfflineSyncBanner({required this.session, required this.status});
+
+  final Session session;
+  final LocalTransactionSyncStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, title, detail, color) = switch (status.status) {
+      'syncing' => (
+        Icons.sync_rounded,
+        'Syncing',
+        'Updating the copy saved on this device.',
+        const Color(0xff2586f5),
+      ),
+      'authentication_required' => (
+        Icons.lock_clock_outlined,
+        'Sign in to sync',
+        'Your data is safe on this device. Reauthenticate to back it up.',
+        AppColors.coral,
+      ),
+      'conflict' => (
+        Icons.warning_amber_rounded,
+        'Some changes need attention',
+        '${status.conflictCount} transaction conflict${status.conflictCount == 1 ? '' : 's'} preserved locally.',
+        AppColors.coral,
+      ),
+      'failed' => (
+        Icons.cloud_off_rounded,
+        'Sync paused',
+        'Changes remain saved on this device. Pull down to retry.',
+        AppColors.coral,
+      ),
+      _ => (
+        Icons.cloud_off_rounded,
+        status.hasPending ? 'Changes saved on this device' : 'Offline copy',
+        status.hasPending
+            ? '${status.pendingCount} change${status.pendingCount == 1 ? '' : 's'} waiting to sync.'
+            : session.canAuthenticate
+            ? 'Pull down to check for updates.'
+            : 'Sign in when online to resume cloud backup.',
+        const Color(0xff7c5ce5),
+      ),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: .28)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HomeHeader extends StatelessWidget {
   const _HomeHeader({required this.name});
 
@@ -144,9 +234,12 @@ class _HomeHeader extends StatelessWidget {
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Let\'s track your spending!',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 15,
+              ),
             ),
           ],
         ),
@@ -276,6 +369,7 @@ class _SpendingChartState extends ConsumerState<_SpendingChart> {
         children: [
           const MascotImage(
             asset: AppAssets.dashboardDog,
+            darkAsset: AppAssets.dashboardDogDark,
             height: 178,
             borderRadius: 18,
             alignment: Alignment(0, -.12),
@@ -286,10 +380,13 @@ class _SpendingChartState extends ConsumerState<_SpendingChart> {
             style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 5),
-          const Text(
+          Text(
             'Start adding your first expense\nto see your spending insights.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary, height: 1.45),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.45,
+            ),
           ),
           const SizedBox(height: 16),
           _GradientActionButton(

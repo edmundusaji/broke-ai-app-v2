@@ -11,7 +11,7 @@ abstract final class AppColors {
   static const textSecondary = Color(0xff64748b);
   static const borderSubtle = Color(0xffe2e8f0);
 
-  static const surfaceRaised = Color(0xfff1f5f9);
+  static const surfaceRaised = Color(0xffffffff);
   static const border = borderSubtle;
   static const danger = Color(0xffff5252);
   static const coral = Color(0xfff97316);

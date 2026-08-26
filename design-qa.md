@@ -60,6 +60,99 @@ final result: passed
 
 ---
 
+# Profile Settings Flow and Global Appearance QA
+
+## Comparison target
+
+- Source visual truth: `C:\Users\edmun\.codex\generated_images\019fe051-334d-7ff1-9f05-0d6ebb6cf739\exec-0e9e23be-74aa-4d84-8aad-829ca3e086ac.png` (853 x 1844 pixels), used as the selected visual language and profile information-architecture reference.
+- Rendered implementation screenshots: 1280 x 2856 physical pixels at approximately 426.7 x 952 logical pixels and device pixel ratio 3.
+- Full light-flow comparison: `qa/comparison-settings-flow-light.png`.
+- Full dark-flow comparison: `qa/comparison-settings-flow-dark.png`.
+- Focused evidence: `qa/manage-profile-light-stable.png`, `qa/security-light.png`, `qa/currency-language-light.png`, `qa/notifications-light.png`, `qa/data-privacy-light.png`, `qa/appearance-light.png`, `qa/profile-dark.png`, `qa/manage-profile-dark-final.png`, `qa/home-dark-final.png`, `qa/scan-dark.png`, and `qa/manual-dark-final.png`.
+- State: authenticated Free-plan account with frontend-only editable preferences; light and dark themes; empty dashboard; no backend profile mutation.
+
+## Findings
+
+- No actionable P0, P1, or P2 visual or interaction differences remain.
+- Information architecture: Manage Profile, Security, Currency & Language, Notifications, Data & Privacy, Help & FAQ, and About are complete destinations. Appearance intentionally remains a bottom sheet as requested.
+- Forms and actions: profile fields validate and save a frontend draft; password controls include show/hide, strength, and confirmation; app lock configures a four-digit PIN with biometric and timing follow-ups; currency/language/region sheets are searchable and selectable.
+- Data and support: backup, export, history clearing, privacy controls, legal links, account deletion confirmation, searchable FAQs, support request, bug reporting, and product information have complete frontend states ready for services later.
+
+## Required fidelity surfaces
+
+- Fonts and typography: the same Material platform family, heavy navy/white headings, compact section labels, and muted supporting copy are used across the flow. Long help, privacy, and notification copy wraps without clipping.
+- Spacing and layout: 24-logical-pixel page gutters, 44–54-logical-pixel controls, grouped 22-pixel-radius surfaces, stable bottom actions, and scrollable lower sections retain the selected profile rhythm.
+- Colors and tokens: light mode extends the selected navy, lavender, green, blue, amber, and coral palette. Dark mode uses a deep navy canvas, blue-black raised surfaces, lavender focus states, muted slate copy, and preserved semantic accents.
+- Image quality: the flow uses crisp Material icons and initial-based account imagery. Existing receipt and mascot raster assets remain sharp and are not replaced by placeholders or code-drawn art.
+- Copy and content: labels describe real user outcomes and clearly distinguish working frontend state from backend-dependent actions.
+
+## Comparison history
+
+1. The first dark-mode pass exposed a P1 contrast failure: reusable Home and Scan surfaces remained white while some inherited text became light, making content unreadable.
+2. Theme-aware surface, divider, input, navigation, metric-card, and transaction-row tokens were applied across the signed-in shell. The revised `qa/home-dark-final.png` and `qa/scan-dark.png` show readable dark surfaces and hierarchy.
+3. The first light Manage Profile pass exposed P2 dark input outlines from unspecified light `ColorScheme` outline tokens. Explicit light outline and surface-container tokens plus a quieter lavender back action fixed the form treatment in `qa/manage-profile-light-stable.png`.
+4. The first dark transaction-sheet pass exposed a P1 low-contrast title in the light mascot banner and inconsistent gradient-button text. Explicit banner ink and white gradient-action content fixed both in `qa/manual-dark-final.png`.
+5. The final light and dark comparison boards show no remaining overflow, lost labels, broken controls, or inconsistent major surfaces.
+
+## Interaction and technical verification
+
+- Verified navigation from Profile into all new destinations and back.
+- Verified profile validation/save feedback, currency selection, language/region choice surfaces, password validation, PIN setup, notification/privacy toggles, FAQ expansion/search, support composer, and delete confirmation.
+- Verified Appearance switches the global `MaterialApp` theme and updates Profile, Home, Scan, nested settings pages, navigation, and transaction sheets immediately.
+- `flutter analyze` reports no issues and all 36 Flutter tests pass.
+
+final result: passed
+
+---
+
+# Authenticated Profile Page — Option 2 Design QA
+
+## Comparison target
+
+- Source visual truth: `C:\Users\edmun\.codex\generated_images\019fe051-334d-7ff1-9f05-0d6ebb6cf739\exec-0e9e23be-74aa-4d84-8aad-829ca3e086ac.png`.
+- Rendered implementation:
+  - `qa/profile-auth-second-pass.png` for the header, account identity, protection card, Personal, and upper App Preferences content.
+  - `qa/profile-auth-lower-stable.png` for the remaining preferences, Data & Support, logout, and persistent navigation.
+  - `qa/profile-backup-sheet.png` for the View backup interaction state.
+- Combined full-view comparison: `qa/comparison-profile-auth.png`.
+- Focused header and sync-card comparison: `qa/comparison-profile-auth-top.png`.
+- Device viewport: 1280 x 2856 physical pixels, approximately 426.7 x 952 logical pixels at device pixel ratio 3.
+- State: authenticated Free-plan account using live session values (`ed`, `ed@g.com`) with synced account data.
+
+## Required fidelity surfaces
+
+- Typography: title, supporting copy, section labels, account metadata, action labels, and red logout hierarchy match the reference intent; Flutter's platform font is slightly wider than the generated reference font.
+- Spacing and layout: the flat identity header, protection card, grouped rows, dividers, trailing metadata, and persistent navigation preserve the source hierarchy. The smaller verification viewport scrolls lower sections instead of shrinking tap targets.
+- Color: navy text, muted slate copy, lavender account/protection accents, category icon tints, green sync indicator, and coral logout styling are consistent with the selected direction.
+- Image and icon quality: all visuals are crisp Material icons or initial-based UI elements at native resolution; the reference does not require photographic or custom raster assets.
+- Copy and state: duplicated username content was replaced with the account email, the plan is explicit, sync status is visible, currency shows IDR, and authenticated-only Security, Data & privacy, About, and logout actions are present.
+
+## Findings
+
+- No actionable P0, P1, or P2 visual differences remain.
+- The authenticated view removes the boxed settings-card treatment and server configuration emphasis from the selected account experience, reducing visual weight and making account safety and common preferences easier to scan.
+- Guest behavior remains intact: its registration prompt, Server settings entry, login/register action, and local-data notice are unchanged in structure.
+- Dynamic account name and email are sourced from the real session, so the rendered email intentionally differs from the placeholder in the generated design.
+- The device-owned status and gesture bars and the taller emulator aspect ratio are expected platform differences.
+
+## Comparison history
+
+1. The first authenticated capture exposed a P2 wrap in `Your data is protected` at this viewport width.
+2. Protection-card padding, icon size, title constraints, and backup-action density were tightened while preserving accessible touch targets.
+3. The second full-view and focused comparisons show a single-line protection title, stable action alignment, complete lower-page content, and no overflow.
+
+## Interaction and technical verification
+
+- View backup opens the `Backup & sync` bottom sheet with a clear protected/synced explanation.
+- Every newly exposed settings row opens an informative bottom sheet, and logout continues to clear the authenticated session through the existing provider flow.
+- Widget coverage verifies authenticated identity content, new sections, removal of authenticated Server settings, and the backup bottom sheet.
+- `flutter analyze` reports no issues, all 31 Flutter tests pass, and `flutter build apk --debug` succeeds.
+- Build note: Flutter reports a non-blocking future Kotlin migration warning from the existing `share_plus` plugin.
+
+final result: passed
+
+---
+
 # Launcher, Manual Entry, and Guest Restart QA
 
 ## Comparison target

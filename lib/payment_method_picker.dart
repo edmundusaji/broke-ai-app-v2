@@ -142,175 +142,175 @@ class _PaymentMethodPickerState extends State<PaymentMethodPicker> {
   }
 
   @override
-  Widget build(BuildContext context) => DraggableScrollableSheet(
-    initialChildSize: .88,
-    minChildSize: .58,
-    maxChildSize: .97,
-    expand: false,
-    builder: (context, scrollController) => Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        boxShadow: [BoxShadow(color: Color(0x300f172a), blurRadius: 30)],
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-          Container(
-            width: 52,
-            height: 5,
-            decoration: BoxDecoration(
-              color: const Color(0xffa99cfb),
-              borderRadius: BorderRadius.circular(99),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 12, 10),
-            child: SizedBox(
-              height: 82,
-              child: Stack(
-                children: [
-                  const Positioned.fill(
-                    right: 50,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Select Payment Method',
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Choose how this transaction was paid.',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    right: 42,
-                    bottom: -4,
-                    child: SizedBox(
-                      width: 102,
-                      height: 62,
-                      child: ClipRect(
-                        child: Transform.scale(
-                          scale: 1.55,
-                          child: Image.asset(
-                            AppAssets.manualCategoryDog,
-                            fit: BoxFit.cover,
-                            alignment: Alignment(0, -.2),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    top: 18,
-                    child: IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.pop(context),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.surfaceRaised,
-                        minimumSize: const Size.square(46),
-                      ),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ),
-                ],
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DraggableScrollableSheet(
+      initialChildSize: .88,
+      minChildSize: .58,
+      maxChildSize: .97,
+      expand: false,
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x30000000), blurRadius: 30),
+          ],
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 52,
+              height: 5,
+              decoration: BoxDecoration(
+                color: const Color(0xffa99cfb),
+                borderRadius: BorderRadius.circular(99),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: TextField(
-              key: const ValueKey('payment-search-field'),
-              controller: searchController,
-              onChanged: (value) => setState(() => query = value),
-              decoration: InputDecoration(
-                hintText: 'Search banks, wallets, cards...',
-                hintStyle: const TextStyle(color: AppColors.textSecondary),
-                prefixIcon: const Icon(
-                  Icons.search_rounded,
-                  color: AppColors.primaryAccent,
-                ),
-                suffixIcon: query.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: () {
-                          searchController.clear();
-                          setState(() => query = '');
-                        },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 12, 10),
+              child: SizedBox(
+                height: 82,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      right: 50,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Select Payment Method',
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Choose how this transaction was paid.',
+                            style: TextStyle(color: colors.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      right: 42,
+                      bottom: -4,
+                      child: SizedBox(
+                        width: 102,
+                        height: 62,
+                        child: ClipRect(
+                          child: Transform.scale(
+                            scale: 1.55,
+                            child: Image.asset(
+                              AppAssets.manualCategoryDog,
+                              fit: BoxFit.cover,
+                              alignment: Alignment(0, -.2),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 18,
+                      child: IconButton(
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.pop(context),
+                        style: IconButton.styleFrom(
+                          backgroundColor: colors.surfaceContainerHighest,
+                          foregroundColor: colors.onSurfaceVariant,
+                          minimumSize: const Size.square(46),
+                        ),
                         icon: const Icon(Icons.close_rounded),
                       ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppColors.borderSubtle),
+                    ),
+                  ],
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppColors.borderSubtle),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(
-                    color: AppColors.primaryAccent,
-                    width: 1.5,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: TextField(
+                key: const ValueKey('payment-search-field'),
+                controller: searchController,
+                onChanged: (value) => setState(() => query = value),
+                decoration: InputDecoration(
+                  hintText: 'Search banks, wallets, cards...',
+                  hintStyle: TextStyle(color: colors.onSurfaceVariant),
+                  prefixIcon: Icon(Icons.search_rounded, color: colors.primary),
+                  suffixIcon: query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: () {
+                            searchController.clear();
+                            setState(() => query = '');
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                  filled: true,
+                  fillColor: colors.surfaceContainerHighest,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: colors.outlineVariant),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: colors.outlineVariant),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: colors.primary, width: 1.5),
                   ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: visibleGroups.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No payment methods found.',
-                      style: TextStyle(color: AppColors.textSecondary),
+            Expanded(
+              child: visibleGroups.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No payment methods found.',
+                        style: TextStyle(color: colors.onSurfaceVariant),
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+                      itemCount: visibleGroups.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 9),
+                      itemBuilder: (_, index) {
+                        final group = visibleGroups[index];
+                        final searching = query.trim().isNotEmpty;
+                        final expanded =
+                            searching || expandedGroups.contains(group.title);
+                        return _PaymentGroupTile(
+                          group: group,
+                          expanded: expanded,
+                          selectedValue: widget.selectedValue,
+                          onToggle: searching
+                              ? null
+                              : () => setState(() {
+                                  if (expanded) {
+                                    expandedGroups.remove(group.title);
+                                  } else {
+                                    expandedGroups.add(group.title);
+                                  }
+                                }),
+                          onSelected: (value) => Navigator.pop(context, value),
+                        );
+                      },
                     ),
-                  )
-                : ListView.separated(
-                    controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
-                    itemCount: visibleGroups.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 9),
-                    itemBuilder: (_, index) {
-                      final group = visibleGroups[index];
-                      final searching = query.trim().isNotEmpty;
-                      final expanded =
-                          searching || expandedGroups.contains(group.title);
-                      return _PaymentGroupTile(
-                        group: group,
-                        expanded: expanded,
-                        selectedValue: widget.selectedValue,
-                        onToggle: searching
-                            ? null
-                            : () => setState(() {
-                                if (expanded) {
-                                  expandedGroups.remove(group.title);
-                                } else {
-                                  expandedGroups.add(group.title);
-                                }
-                              }),
-                        onSelected: (value) => Navigator.pop(context, value),
-                      );
-                    },
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _PaymentGroupTile extends StatelessWidget {
@@ -331,120 +331,123 @@ class _PaymentGroupTile extends StatelessWidget {
   bool get containsSelection => group.options.contains(selectedValue);
 
   @override
-  Widget build(BuildContext context) => AnimatedContainer(
-    duration: const Duration(milliseconds: 180),
-    decoration: BoxDecoration(
-      color: containsSelection ? const Color(0xfff7f5ff) : Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
         color: containsSelection
-            ? AppColors.primaryAccent
-            : AppColors.borderSubtle,
-        width: containsSelection ? 1.5 : 1,
-      ),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x100f172a),
-          blurRadius: 12,
-          offset: Offset(0, 5),
+            ? colors.primary.withValues(alpha: .1)
+            : colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: containsSelection ? colors.primary : colors.outlineVariant,
+          width: containsSelection ? 1.5 : 1,
         ),
-      ],
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      children: [
-        InkWell(
-          onTap: onToggle,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
-            child: Row(
-              children: [
-                _MethodMark(icon: group.icon, title: group.title),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        group.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (!expanded) ...[
-                        const SizedBox(height: 7),
-                        SizedBox(
-                          height: 29,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: group.options.length.clamp(0, 6),
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 6),
-                            itemBuilder: (_, index) =>
-                                _OptionPreview(label: group.options[index]),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x100f172a),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+              child: Row(
+                children: [
+                  _MethodMark(icon: group.icon, title: group.title),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          group.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
+                        if (!expanded) ...[
+                          const SizedBox(height: 7),
+                          SizedBox(
+                            height: 29,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: group.options.length.clamp(0, 6),
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 6),
+                              itemBuilder: (_, index) =>
+                                  _OptionPreview(label: group.options[index]),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  containsSelection
-                      ? Icons.check_circle_rounded
-                      : expanded
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.chevron_right_rounded,
-                  color: containsSelection
-                      ? AppColors.primaryAccent
-                      : const Color(0xff3d43a3),
-                  size: containsSelection ? 28 : 24,
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (expanded)
-          ...group.options.map(
-            (option) => InkWell(
-              onTap: () => onSelected(option),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: AppColors.borderSubtle),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    _OptionPreview(label: option, large: true),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: Text(
-                        option,
-                        style: const TextStyle(fontSize: 13.5, height: 1.25),
-                      ),
                     ),
-                    Icon(
-                      selectedValue == option
-                          ? Icons.check_circle_rounded
-                          : Icons.chevron_right_rounded,
-                      color: selectedValue == option
-                          ? AppColors.primaryAccent
-                          : AppColors.textSecondary,
-                      size: 21,
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    containsSelection
+                        ? Icons.check_circle_rounded
+                        : expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.chevron_right_rounded,
+                    color: containsSelection
+                        ? colors.primary
+                        : colors.onSurfaceVariant,
+                    size: containsSelection ? 28 : 24,
+                  ),
+                ],
               ),
             ),
           ),
-      ],
-    ),
-  );
+          if (expanded)
+            ...group.options.map(
+              (option) => InkWell(
+                onTap: () => onSelected(option),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: colors.outlineVariant),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      _OptionPreview(label: option, large: true),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Text(
+                          option,
+                          style: const TextStyle(fontSize: 13.5, height: 1.25),
+                        ),
+                      ),
+                      Icon(
+                        selectedValue == option
+                            ? Icons.check_circle_rounded
+                            : Icons.chevron_right_rounded,
+                        color: selectedValue == option
+                            ? colors.primary
+                            : colors.onSurfaceVariant,
+                        size: 21,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MethodMark extends StatelessWidget {
